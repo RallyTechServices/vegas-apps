@@ -30,6 +30,7 @@ function initTaskboard() {
 
     RALLY.toolkit.HTML.createMaskLayer();
 
+	var ShowDebug = true; //Show console.log debug lines
     var statusDiv = null;
     var setStatus = function (msg) {
         if (!statusDiv) {
@@ -143,6 +144,7 @@ function initTaskboard() {
                     ownerClass = ['owner'],
                     divId = 'rally-workprod-' + value.ObjectID,
                     divClass = ['rally-workprod'],
+                    createIconId = 'create-' + Dom.generateId(),
                     timeClass = ['rally-time'];
 
             // owner could be an object literal, or a string (if the user has been deleted in the app)
@@ -171,7 +173,7 @@ function initTaskboard() {
                 blocked: value.Blocked
             });
             html.push('<div class="state">' + state.display(false, value.ScheduleState == 'Accepted') + '</div>');
-
+            html.push('<img id="' + createIconId + '" src="' + RALLY.toolkit.Connection.getServerURL() + '/images/icon_pencil.gif" alt="Edit" />');
             html.push('<div class="id">' + value.FormattedID + '</div>');
             html.push('<div class="name">' + RALLY.toolkit.niceSubstring(value.Name, 100) + '</div>');
             html.push('<div class="' + ownerClass.join(' ') + '">' + owner + '</div>');
@@ -186,6 +188,15 @@ function initTaskboard() {
             html.push('</div>');
 
             container.innerHTML = html.join('');
+            
+            Event.purgeElement(createIconId);
+            Event.addListener(createIconId, 'click', function (e) {
+				  if (ShowDebug) {console.log("Debug: value=",         value);         }
+				  if (ShowDebug) {console.log("Debug: value.ObjectID=",value.ObjectID);}
+				  if (ShowDebug) {console.log("Debug: value._ref=",    value._ref);    }
+				  if (ShowDebug) {console.log("Debug: schema=",        schema);        }
+                  rally.sdk.util.Navigation.popupCreatePage("task", {workProduct: value.ObjectID});
+            });
         },
 
         cellSortFunction: function (a, b) {
@@ -281,7 +292,8 @@ function initTaskboard() {
             Event.purgeElement(editIconId);
             Event.addListener(editIconId, 'click', function (e) {
 //                gridController.showEditor(item, schema);
-//				  console.log("JPKole(debug): ",item,schema);
+				  if (ShowDebug) {console.log("Debug: item=",item);}
+  				  if (ShowDebug) {console.log("Debug: schema=",schema);}
                   rally.sdk.util.Navigation.popupEditPage("/task/" + item.ObjectID);
             });
             Event.purgeElement(deleteIconId);
