@@ -23,6 +23,7 @@
 <script type="text/javascript" src="__SERVER_URL__/js/toolkit/0.02/editor.js"></script>
 <script type="text/javascript" src="__SERVER_URL__/js/toolkit/0.02/datasource.js"></script>
 <script type="text/javascript" src="/slm/js-lib/async/async.min.js"></script>
+<script type="text/javascript" src="/apps/1.29/sdk.js"></script>
 <script type="text/javascript">
 
 function initTaskboard() {
@@ -279,7 +280,9 @@ function initTaskboard() {
 
             Event.purgeElement(editIconId);
             Event.addListener(editIconId, 'click', function (e) {
-                gridController.showEditor(item, schema);
+//                gridController.showEditor(item, schema);
+//				  console.log("JPKole(debug): ",item,schema);
+                  rally.sdk.util.Navigation.popupEditPage("/task/" + item.ObjectID);
             });
             Event.purgeElement(deleteIconId);
             Event.addListener(deleteIconId, 'click', function (e) {
