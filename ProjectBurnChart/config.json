@@ -1,0 +1,14 @@
+{
+   "name": "ProjectBurnChart",
+   "className": "CustomApp",
+   "server": "https://rally1.rallydev.com",
+   "sdk": "2.0rc2",
+   "javascript": [
+      "ts_overrides.js",
+      "ActualCalculator.js",
+      "App.js"
+   ],
+   "css": [
+      "app.css"
+   ]
+}
