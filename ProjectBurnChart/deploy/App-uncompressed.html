@@ -296,7 +296,8 @@ Ext.override(Rally.ui.combobox.ReleaseComboBox,{
         {xtype:'container',itemId:'chart_box', margin: 10 }
     ],
     launch: function() {
-        this.setLoading(true);
+        console.log("Launching");
+        //this.setLoading(true);
 
         var projectRef = this.getContext().getProjectRef();
         var projectOid = this.getContext().getProject().ObjectID;
@@ -304,11 +305,16 @@ Ext.override(Rally.ui.combobox.ReleaseComboBox,{
         this.down('#selector_box').add({
             xtype:'rallyreleasecombobox',
             allowNoEntry: true,
+            padding: 5,
+            fieldLabel: "Release:",
+            labelWidth: 50,
             noEntryText: "-- All --",
             listeners: {
                 scope: this,
                 change: function(release_box, new_value, old_value, eOpts ) {
-                    console.log("Change Release", new_value, release_box.getRecord());
+                    console.log("Change Release", new_value);
+                    
+                    console.log(" Release: ", release_box.getRecord());
                     this.down('#chart_box').removeAll();
                     this.gatherData(projectRef,projectOid,release_box.getRecord());
                 }
