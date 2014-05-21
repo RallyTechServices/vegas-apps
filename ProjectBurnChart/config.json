@@ -5,6 +5,7 @@
    "sdk": "2.0rc2",
    "javascript": [
       "ts_overrides.js",
+      "ts_logger.js",
       "ActualCalculator.js",
       "App.js"
    ],

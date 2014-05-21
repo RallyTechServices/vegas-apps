@@ -1,14 +1,14 @@
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
     items: [
         {xtype:'container',itemId:'selector_box',margin: 10 },
         {xtype:'container',itemId:'chart_box', margin: 10 }
     ],
     launch: function() {
-        console.log("Launching");
         //this.setLoading(true);
-
+        this.logger.log("Launched with context: ", this.getContext());
         var projectRef = this.getContext().getProjectRef();
         var projectOid = this.getContext().getProject().ObjectID;
 
@@ -22,9 +22,6 @@ Ext.define('CustomApp', {
             listeners: {
                 scope: this,
                 change: function(release_box, new_value, old_value, eOpts ) {
-                    console.log("Change Release", new_value);
-                    
-                    console.log(" Release: ", release_box.getRecord());
                     this.down('#chart_box').removeAll();
                     this.gatherData(projectRef,projectOid,release_box.getRecord());
                 }
@@ -35,30 +32,28 @@ Ext.define('CustomApp', {
         this.loadIterations(projectRef, projectOid,release).then({
             scope: this,
             success: function(iterations) {
-                console.log("back from iterations",iterations);
                 var iterationFilters = this.getIterationFilters(iterations);
 
                 this.loadCapacities(projectRef, projectOid, iterationFilters).then({
                     scope: this,
                     success: function(capacities) {
-                        console.log("back from capacities",capacities);
                         this.setLoading(false);
                         this.loadChart(iterations, capacities, projectOid, release);
                     },
                     failure: function(error) {
                         console.log("Failed to load iteration capacities");
-                        console.log(error);
+                        alert("Error while loading iteration capacities: " + error);
                     }
                 });
             },
             failure: function(error) {
                 console.log("Failed to load iterations for project '" + projectRef + "'");
-                console.log(error);
+                alert("Error while loading iterations: " + error);
             }
         });
     },
     getIterationFilters: function(iterations) {
-        console.log("getIterationFilters",iterations);
+        this.logger.log("getIterationFilters",iterations);
         var iterationFilters = [];
         for (var i = 0, l = iterations.length; i < l; i++) {
             iterationFilters.push({
@@ -71,7 +66,6 @@ Ext.define('CustomApp', {
 
     loadIterations: function(projectRef, projectOid, release) {
         var deferred = Ext.create('Deft.Deferred');
-        console.log("loadIterations",projectRef,projectOid,release);
         
         var filters = [{ property: 'Project', value: projectRef }];
         
@@ -99,8 +93,9 @@ Ext.define('CustomApp', {
                 }
             ],
             listeners: {
+                scope: this,
                 load: function(store,records,successful){
-                    console.log("returned with ", records, successful);
+                    this.logger.log("got iterations", records, successful);
                     if ( successful ) {
                         deferred.resolve(records);
                     } else {
@@ -113,7 +108,6 @@ Ext.define('CustomApp', {
     },
     loadCapacities: function(projectRef, projectOid, iterationFilters) {
         var deferred = Ext.create('Deft.Deferred');
-        console.log('loadCapacities',projectRef,projectOid);
         
         Ext.create('Rally.data.wsapi.Store', {
             model: 'useriterationcapacity',
@@ -140,7 +134,6 @@ Ext.define('CustomApp', {
     },
 
     loadChart: function(iterations, capacities, projectOid, release) {
-        console.log("loadChart",iterations,capacities,projectOid,release);
         
         var filters = {
             '_ProjectHierarchy': projectOid,
