@@ -22,18 +22,21 @@ Ext.define('CustomApp', {
             listeners: {
                 scope: this,
                 change: function(release_box, new_value, old_value, eOpts ) {
-                    this.logger.log("Release Box Change");
+                    this.logger.log("Release Box Change",release_box.getRecord());
                     this.down('#chart_box').removeAll();
                     this.gatherData(projectRef,projectOid,release_box.getRecord());
                 },
                 ready: function(release_box) {
-                    this.logger.log("Release Box Ready");
-                    if ( release_box.getRecord() ) {
+                    this.logger.log("Release Box Ready",release_box.getRecord());
+                    if ( release_box.getRecord().get('Name') == "-- All --") {
                         this.gatherData(projectRef,projectOid,release_box.getRecord());
                     }
                 }
             }
         });
+    },
+    report_message: function(message) {
+        this.down('#chart_box').add({xtype:'container',html:message});
     },
     gatherData: function(projectRef,projectOid,release) {
         this.logger.log("gatherData",projectOid,release);
@@ -41,10 +44,10 @@ Ext.define('CustomApp', {
             scope: this,
             success: function(iterations) {
                 if ( iterations.length === 0 ) {
-                    this.down('#chart_box').add({xtype:'container',html:'No iterations defined.'});
+                    this.report_message('No iterations defined.');
                 } else {
                     var iterationFilters = this.getIterationFilters(iterations);
-    
+
                     this.loadCapacities(projectRef, projectOid, iterationFilters).then({
                         scope: this,
                         success: function(capacities) {
@@ -120,6 +123,7 @@ Ext.define('CustomApp', {
     },
     loadCapacities: function(projectRef, projectOid, iterationFilters) {
         var deferred = Ext.create('Deft.Deferred');
+        this.logger.log("loadCapacities");
         
         Ext.create('Rally.data.wsapi.Store', {
             model: 'useriterationcapacity',
@@ -146,6 +150,7 @@ Ext.define('CustomApp', {
     },
 
     loadChart: function(iterations, capacities, projectOid, release) {
+        this.logger.log("loadChart");
         
         var filters = {
             '_ProjectHierarchy': projectOid,

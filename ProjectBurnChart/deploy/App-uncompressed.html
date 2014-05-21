@@ -333,13 +333,13 @@ Ext.define('Rally.technicalservices.Logger',{
             listeners: {
                 scope: this,
                 change: function(release_box, new_value, old_value, eOpts ) {
-                    this.logger.log("Release Box Change");
+                    this.logger.log("Release Box Change",release_box.getRecord());
                     this.down('#chart_box').removeAll();
                     this.gatherData(projectRef,projectOid,release_box.getRecord());
                 },
                 ready: function(release_box) {
-                    this.logger.log("Release Box Ready");
-                    if ( release_box.getRecord() ) {
+                    this.logger.log("Release Box Ready",release_box.getRecord());
+                    if ( release_box.getRecord().get('Name') == "-- All --") {
                         this.gatherData(projectRef,projectOid,release_box.getRecord());
                     }
                 }
