@@ -116,7 +116,7 @@ Ext.define('Rally.technicalservices.Logger',{
         var cumulativeActualSeriesData = [];
         var backlogRemainingSeriesData = [];
         var devIncreaseSeriesData = [];
-        var devIncrease;
+        var devIncrease = 0;
         var cumulativedevIncrease = 0;
         var previousBacklogRemaining = null;
         var categories = [];
@@ -144,12 +144,10 @@ Ext.define('Rally.technicalservices.Logger',{
 
             var backlogRemaining = incompleteIterationTotals[iterationName] || 0;
 
-
             if (i === 0) {
                 TotalPoints = backlogRemaining;
                 devIncreaseSeriesData.push(0);
-            }
-            else {
+            } else {
                 devIncrease = Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0);
                 cumulativedevIncrease += devIncrease;
                 devIncreaseSeriesData.push(devIncrease);
@@ -157,7 +155,8 @@ Ext.define('Rally.technicalservices.Logger',{
             }
             previousBacklogRemaining = backlogRemaining;
             if (pastIteration) {
-                backlogRemainingSeriesData.push(backlogRemaining - Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0));
+//                backlogRemainingSeriesData.push(backlogRemaining - Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0));
+                backlogRemainingSeriesData.push(backlogRemaining - devIncrease - Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0));
             }
 
 
@@ -346,16 +345,19 @@ Ext.define('Rally.technicalservices.Logger',{
             }
         });
     },
+    report_message: function(message) {
+        this.down('#chart_box').add({xtype:'container',html:message});
+    },
     gatherData: function(projectRef,projectOid,release) {
         this.logger.log("gatherData",projectOid,release);
         this.loadIterations(projectRef, projectOid,release).then({
             scope: this,
             success: function(iterations) {
                 if ( iterations.length === 0 ) {
-                    this.down('#chart_box').add({xtype:'container',html:'No iterations defined.'});
+                    this.report_message('No iterations defined.');
                 } else {
                     var iterationFilters = this.getIterationFilters(iterations);
-    
+
                     this.loadCapacities(projectRef, projectOid, iterationFilters).then({
                         scope: this,
                         success: function(capacities) {
@@ -431,6 +433,7 @@ Ext.define('Rally.technicalservices.Logger',{
     },
     loadCapacities: function(projectRef, projectOid, iterationFilters) {
         var deferred = Ext.create('Deft.Deferred');
+        this.logger.log("loadCapacities");
         
         Ext.create('Rally.data.wsapi.Store', {
             model: 'useriterationcapacity',
@@ -457,6 +460,7 @@ Ext.define('Rally.technicalservices.Logger',{
     },
 
     loadChart: function(iterations, capacities, projectOid, release) {
+        this.logger.log("loadChart");
         
         var filters = {
             '_ProjectHierarchy': projectOid,

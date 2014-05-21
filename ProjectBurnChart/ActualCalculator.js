@@ -40,7 +40,7 @@ Ext.define('ActualCalculator', {
         var cumulativeActualSeriesData = [];
         var backlogRemainingSeriesData = [];
         var devIncreaseSeriesData = [];
-        var devIncrease;
+        var devIncrease = 0;
         var cumulativedevIncrease = 0;
         var previousBacklogRemaining = null;
         var categories = [];
@@ -68,12 +68,10 @@ Ext.define('ActualCalculator', {
 
             var backlogRemaining = incompleteIterationTotals[iterationName] || 0;
 
-
             if (i === 0) {
                 TotalPoints = backlogRemaining;
                 devIncreaseSeriesData.push(0);
-            }
-            else {
+            } else {
                 devIncrease = Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0);
                 cumulativedevIncrease += devIncrease;
                 devIncreaseSeriesData.push(devIncrease);
@@ -81,7 +79,8 @@ Ext.define('ActualCalculator', {
             }
             previousBacklogRemaining = backlogRemaining;
             if (pastIteration) {
-                backlogRemainingSeriesData.push(backlogRemaining - Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0));
+//                backlogRemainingSeriesData.push(backlogRemaining - Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0));
+                backlogRemainingSeriesData.push(backlogRemaining - devIncrease - Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0));
             }
 
 
