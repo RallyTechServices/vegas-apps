@@ -22,29 +22,41 @@ Ext.define('CustomApp', {
             listeners: {
                 scope: this,
                 change: function(release_box, new_value, old_value, eOpts ) {
+                    this.logger.log("Release Box Change");
                     this.down('#chart_box').removeAll();
                     this.gatherData(projectRef,projectOid,release_box.getRecord());
+                },
+                ready: function(release_box) {
+                    this.logger.log("Release Box Ready");
+                    if ( release_box.getRecord() ) {
+                        this.gatherData(projectRef,projectOid,release_box.getRecord());
+                    }
                 }
             }
         });
     },
     gatherData: function(projectRef,projectOid,release) {
+        this.logger.log("gatherData",projectOid,release);
         this.loadIterations(projectRef, projectOid,release).then({
             scope: this,
             success: function(iterations) {
-                var iterationFilters = this.getIterationFilters(iterations);
-
-                this.loadCapacities(projectRef, projectOid, iterationFilters).then({
-                    scope: this,
-                    success: function(capacities) {
-                        this.setLoading(false);
-                        this.loadChart(iterations, capacities, projectOid, release);
-                    },
-                    failure: function(error) {
-                        console.log("Failed to load iteration capacities");
-                        alert("Error while loading iteration capacities: " + error);
-                    }
-                });
+                if ( iterations.length === 0 ) {
+                    this.down('#chart_box').add({xtype:'container',html:'No iterations defined.'});
+                } else {
+                    var iterationFilters = this.getIterationFilters(iterations);
+    
+                    this.loadCapacities(projectRef, projectOid, iterationFilters).then({
+                        scope: this,
+                        success: function(capacities) {
+                            this.setLoading(false);
+                            this.loadChart(iterations, capacities, projectOid, release);
+                        },
+                        failure: function(error) {
+                            console.log("Failed to load iteration capacities");
+                            alert("Error while loading iteration capacities: " + error);
+                        }
+                    });
+                }
             },
             failure: function(error) {
                 console.log("Failed to load iterations for project '" + projectRef + "'");
