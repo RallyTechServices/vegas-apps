@@ -48,11 +48,11 @@ function initTaskboard() {
         statusDiv.innerHTML = msg || '';
     };
 
-    var insideRally = RALLY.toolkit.insideRally();
-    var showActuals = false;
-    var currentProjectOid = '__PROJECT_OID__';
-    var projectScopeUp = '__PROJECT_SCOPING_UP__' == 'true';
-    var projectScopeDown = '__PROJECT_SCOPING_DOWN__' == 'true';
+    var insideRally         = RALLY.toolkit.insideRally();
+    var showActuals         = false;
+    var currentProjectOid   = '__PROJECT_OID__';
+    var projectScopeUp      = '__PROJECT_SCOPING_UP__' == 'true';
+    var projectScopeDown    = '__PROJECT_SCOPING_DOWN__' == 'true';
 
     // use this to rebuild the full query, stitching in the
     // project scoping information from the top-level variables above
