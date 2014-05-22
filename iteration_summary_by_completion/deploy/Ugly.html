@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Iteration Completion Summary</title>
+    <!--  (c) 2013 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Thu May 22 2014 05:56:26 GMT-0700 (PDT) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Thu May 22 2014 05:56:26 GMT-0700 (PDT)";
+        var CHECKSUM = [%= checksum %];
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+            
+            
+               Rally.launchApp('CustomApp', {
+                   name: 'Iteration Completion Summary'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.iteration-summary-app {
+    padding: 10px;
+    width: 100% !important;
+}
+
+.iteration-summary-app .daysRemaining {
+    font-weight: bold;
+}
+
+.iteration-summary-app .dates {
+    font-size: 12px;
+}
+
+.iteration-summary-app .message {
+    padding-top: 10px;
+    font-size: 14px;
+}
+
+.iteration-summary-app .state {
+    padding-top: 5px;
+    font-style: italic;
+}
+
+.iteration-summary-app .edit {
+    font-size: 11px;
+    padding-top: 10px;
+}
+
+.iteration-summary-app .timeboxStatusRow {
+    margin-top: 10px;
+    padding-left: 5px;
+}
+
+.iteration-summary-app .timeboxStatusRow.success {
+    background-color: #6ab17d;
+}
+
+.iteration-summary-app .timeboxStatusRow.warn {
+    background-color: #d9af4b;
+}
+
+.iteration-summary-app .timeboxStatusRow.error {
+    background-color: #f47168;
+}
+
+.iteration-summary-app .timeboxStatusRow.pending {
+    background-color: #c6c6c6;
+}
+
+.iteration-summary-app .timeboxStatusRow .timeboxStatusDetails {
+    background-color: #ffffff;
+    padding-left: 5px;
+}
+
+.iteration-summary-app .timeboxStatusRow .timeboxStatusDetails .header {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.iteration-summary-app .timeboxStatusRow .timeboxStatusDetails .subtitle {
+    font-weight: normal;
+    padding-left: 5px;
+}
+
+.iteration-summary-app .timeboxStatusRow .timeboxStatusDetails .details {
+    font-size: 11px;
+}
+
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width:5%;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
