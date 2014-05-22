@@ -267,7 +267,8 @@ Ext.define('CustomApp', {
         return ((this.timeBoxInfo.timeboxLength - this.timeBoxInfo.daysRemaining) >= 5 || (this.timeBoxInfo.timeboxLength - this.timeBoxInfo.daysRemaining) > this.timeBoxInfo.daysRemaining);
     },
 
-    _aggregateAcceptance: function(items, postAcceptedState) {
+    /* If includeComplete is true, "Done" means completed, else it means Accepted */
+    _aggregateAcceptance: function(items, postAcceptedState, includeComplete) {
         var acceptanceData = {
             totalPlanEstimate: 0,
             totalAcceptedPoints: 0,
@@ -289,6 +290,9 @@ Ext.define('CustomApp', {
                 if (item.get('AcceptedDate') && item.get('AcceptedDate') > this.getEndDate()) {
                     acceptanceData.acceptedLate = true;
                 }
+            } else if (item.get('ScheduleState') === "Completed" && includeComplete) {
+                acceptanceData.totalAcceptedPoints += item.get('PlanEstimate');
+                acceptanceData.totalAcceptedItems++;
             } else if (!item.get('PlanEstimate')) {
                 acceptanceData.workNotEstimated++;
             }
@@ -297,6 +301,92 @@ Ext.define('CustomApp', {
         return acceptanceData;
     },
 
+    /* redefine Accepted as Completed */
+    _getCompletedConfigObject: function() {
+        return this._getPostAcceptedState().then({
+            success: function(postAcceptedState) {
+                var totalPlanEstimate = 0;
+                var totalAcceptedPoints = 0;
+                
+                var totalItems = 0;
+                var totalAcceptedItems = 0;
+                
+                var acceptedLate = false;
+                var workNotEstimated = 0;
+
+                Ext.Object.each(this.results, function(key, item) {
+                    var itemAcceptanceData = this._aggregateAcceptance(item, postAcceptedState, true);
+                    totalPlanEstimate += itemAcceptanceData.totalPlanEstimate;
+                    totalAcceptedPoints += itemAcceptanceData.totalAcceptedPoints;
+                    totalItems += itemAcceptanceData.totalItems;
+                    totalAcceptedItems += itemAcceptanceData.totalAcceptedItems;
+                    if (!acceptedLate) {
+                        acceptedLate = itemAcceptanceData.acceptedLate;
+                    }
+                    workNotEstimated += itemAcceptanceData.workNotEstimated;
+                }, this);
+
+                //Calculate the acceptance percentage.
+                // ||1 - Handle NaN resulting from divide by 0
+                var percentAccepted = Math.floor((totalAcceptedPoints / (totalPlanEstimate || 1)) * 100);
+                var config = { rowType: 'pointAcceptance'};
+
+                if (this.timeBoxInfo.timeOrientation !== "future") {
+
+                    // days remaining   : percent accepted      : status
+                    // ----------------------------------------------
+                    // 0                : 100                   : success
+                    // 0                : <100                  : error
+                    // beyond half      : 0                     : warn
+                    // beyond half      : >0                    : pending
+
+                    config.title = percentAccepted + "% Accepted";
+                    config.subtitle = "(" + Ext.util.Format.round(totalAcceptedPoints, 2) + " of " + Ext.util.Format.round(totalPlanEstimate, 2) + " " +
+                            this.getContext().getWorkspace().WorkspaceConfiguration.IterationEstimateUnitName + ")";
+                    config.message = "";
+                    if (this.timeBoxInfo.daysRemaining === 0) {
+                        if (percentAccepted < 100) {
+                            config.status = "error";
+                            config.message = this.self.PAST_WITH_SOME_UNACCEPTED_WORK;
+                            config.learnMore = "stories";
+                        } else if (acceptedLate) {
+                            config.message = this.self.PAST_WITH_ACCEPTED_WORK_AFTER_END_DATE;
+                            config.status = "success";
+                            config.learnMore = "stories";
+                        } else {
+                            config.status = "success";
+                        }
+                    } else if (this._showStatuses()) {
+                        if (percentAccepted === 0) {
+                            config.status = "warn";
+                        } else if (percentAccepted === 100) {
+                            if (workNotEstimated === 0) {
+                                config.status = "success";
+                            } else {
+                                config.status = "pending";
+                                config.message = workNotEstimated + this.self.WORK_NOT_ESTIMATED;
+                            }
+                        } else {
+                            config.status = "pending";
+                        }
+                        if (percentAccepted < 100) {
+                            config.message = this.self.CURRENT_WITH_SOME_UNACCEPTED_WORK;
+                            config.learnMore = "stories";
+                        }
+                    } else {
+                        config.status = "pending";
+                        if (percentAccepted === 0) {
+                            config.message = this.self.CURRENT_WITH_NO_ACCEPTED_WORK;
+                            config.learnMore = "stories";
+                        }
+                    }
+                }
+
+                return config;
+            },
+            scope: this
+        });
+    },
     _getAcceptanceConfigObject: function() {
         return this._getPostAcceptedState().then({
             success: function(postAcceptedState) {
@@ -380,7 +470,7 @@ Ext.define('CustomApp', {
             scope: this
         });
     },
-
+    
     _getActiveDefectCount: function(items) {
         var activeDefectsCount = 0;
         items = items || [];
@@ -480,10 +570,11 @@ Ext.define('CustomApp', {
     },
 
     _displayStatusRows: function() {
-        return this._getAcceptanceConfigObject().then({
-            success: function(acceptanceConfigObject) {
+        //return this._getAcceptanceConfigObject().then({
+        return this._getCompletedConfigObject().then({
+            success: function(done_config_object) {
                 this.down('#stats').suspendLayouts();
-                this._displayStatusRow(acceptanceConfigObject);
+                this._displayStatusRow(done_config_object);
                 this._displayStatusRow(this._getDefectsConfigObject());
                 if (!this._isHsOrTeamEdition()) {
                     this._displayStatusRow(this._getTestsConfigObject());
