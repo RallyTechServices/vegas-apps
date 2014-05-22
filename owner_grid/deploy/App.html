@@ -3,11 +3,11 @@
 <head>
     <title>Owned Story Grid</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu May 22 2014 07:21:57 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu May 22 2014 07:24:19 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu May 22 2014 07:21:57 GMT-0700 (PDT)";
-        var CHECKSUM = 1804407016;
+        var APP_BUILD_DATE = "Thu May 22 2014 07:24:19 GMT-0700 (PDT)";
+        var CHECKSUM = 1847819962;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
@@ -198,12 +198,14 @@ Ext.define('CustomApp', {
             xtype:'rallygrid',
             store:work_item_store,
             showRowActionsColumn:false,
+            enableColumnMove:false,
             pagingToolbarCfg: {
                 store:work_item_store
             },
             columnCfgs: [
                 {dataIndex:'FormattedID',text:'id',flex: 1},
-                {dataIndex:'Name',text:'Name'}
+                {dataIndex:'Name',text:'Name'},
+                {dataIndex:'Project',text:'Project'}
             ]
         });
         this.setLoading(false);

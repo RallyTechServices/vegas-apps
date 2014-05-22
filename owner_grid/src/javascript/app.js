@@ -59,12 +59,14 @@ Ext.define('CustomApp', {
             xtype:'rallygrid',
             store:work_item_store,
             showRowActionsColumn:false,
+            enableColumnMove:false,
             pagingToolbarCfg: {
                 store:work_item_store
             },
             columnCfgs: [
                 {dataIndex:'FormattedID',text:'id',flex: 1},
-                {dataIndex:'Name',text:'Name'}
+                {dataIndex:'Name',text:'Name'},
+                {dataIndex:'Project',text:'Project'}
             ]
         });
         this.setLoading(false);
