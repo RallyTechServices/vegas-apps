@@ -23,8 +23,7 @@ Ext.define('ActualCalculator', {
                     oldTotal = completedIterationTotals[iterationName] || 0;
                     completedIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
                 }
-            }
-            else {
+            } else {
                 for (var iter = 0, iterL = iterations.length; iter < iterL; iter++) {
                     iteration = iterations[iter];
                     iterationName = iteration.get('Name');
@@ -94,37 +93,43 @@ Ext.define('ActualCalculator', {
 
         return {
             series: [
-            {
-                name: 'Work Done (Current iteration Accepted Points)',
-                data: actualSeriesData
-            },
+                {
+                    name: 'Work Done (Current iteration Accepted Points)',
+                    data: actualSeriesData,
+                    itemId: 'done'
+                },
                 {
                     name: 'Total Work (Cumulative Accepted Points)',
-                    data: cumulativeActualSeriesData
+                    data: cumulativeActualSeriesData,
+                    itemId: 'total'
                 },
 
                 {
                     name: 'Work Increase (Points per iteration)',
                     data: devIncreaseSeriesData,
-                    stack: '1'
+                    stack: '1',
+                    itemId: 'increase'
                 },
                 {
                     name: 'Backlog Remaining (Total Unaccepted Points)',
                     data: backlogRemainingSeriesData,
-                    stack: '1'
+                    stack: '1',
+                    itemId: 'remaining'
                 },
 
                 {
                     name: 'Burn down projection',
-                    data: backlogBurnProjectionSeriesData
+                    data: backlogBurnProjectionSeriesData,
+                    itemId: 'projection'
                 },
                 {
                     name: 'Ideal Line',
                     data: [[0, TotalPoints], [ReleaseIteration, 0]],
-                    type: 'line'
+                    type: 'line',
+                    itemId: 'ideal'
 
                 }
-                ],
+            ],
             categories: categories
         };
     },

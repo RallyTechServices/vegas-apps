@@ -99,8 +99,7 @@ Ext.define('Rally.technicalservices.Logger',{
                     oldTotal = completedIterationTotals[iterationName] || 0;
                     completedIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
                 }
-            }
-            else {
+            } else {
                 for (var iter = 0, iterL = iterations.length; iter < iterL; iter++) {
                     iteration = iterations[iter];
                     iterationName = iteration.get('Name');
@@ -170,37 +169,43 @@ Ext.define('Rally.technicalservices.Logger',{
 
         return {
             series: [
-            {
-                name: 'Work Done (Current iteration Accepted Points)',
-                data: actualSeriesData
-            },
+                {
+                    name: 'Work Done (Current iteration Accepted Points)',
+                    data: actualSeriesData,
+                    itemId: 'done'
+                },
                 {
                     name: 'Total Work (Cumulative Accepted Points)',
-                    data: cumulativeActualSeriesData
+                    data: cumulativeActualSeriesData,
+                    itemId: 'total'
                 },
 
                 {
                     name: 'Work Increase (Points per iteration)',
                     data: devIncreaseSeriesData,
-                    stack: '1'
+                    stack: '1',
+                    itemId: 'increase'
                 },
                 {
                     name: 'Backlog Remaining (Total Unaccepted Points)',
                     data: backlogRemainingSeriesData,
-                    stack: '1'
+                    stack: '1',
+                    itemId: 'remaining'
                 },
 
                 {
                     name: 'Burn down projection',
-                    data: backlogBurnProjectionSeriesData
+                    data: backlogBurnProjectionSeriesData,
+                    itemId: 'projection'
                 },
                 {
                     name: 'Ideal Line',
                     data: [[0, TotalPoints], [ReleaseIteration, 0]],
-                    type: 'line'
+                    type: 'line',
+                    itemId: 'ideal'
 
                 }
-                ],
+            ],
             categories: categories
         };
     },
@@ -313,27 +318,35 @@ Ext.define('Rally.technicalservices.Logger',{
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     items: [
-        {xtype:'container',itemId:'selector_box',margin: 10 },
-        {xtype:'container',itemId:'chart_box', margin: 10 }
+        {xtype:'container',itemId:'selector_box',margin: 10, layout: { type: 'hbox' } },
+        {xtype:'container',itemId:'chart_box', margin: 10},
+        {xtype:'container',itemId:'summary_box', margin: 10, tpl: '<tpl>' +
+                '<div class="summary_table"> <table >' +
+            '<tr><td>Most Recent Iteration </td><td>{name}</td></tr>' +
+            '<tr><td>Work Done (Current) </td><td>{done}</td></tr>' +
+            '<tr><td>Total Work (Cumulative) </td><td>{total}</td></tr>' +
+            '<tr><td>Work Increase </td><td>{increase}</td></tr>' +
+            '<tr><td>Backlog Remaining </td><td>{remaining}</td></tr>' +
+            '</table></div>' + 
+            '</tpl>' }
     ],
     launch: function() {
         //this.setLoading(true);
         this.logger.log("Launched with context: ", this.getContext());
         var projectRef = this.getContext().getProjectRef();
         var projectOid = this.getContext().getProject().ObjectID;
-
         this.down('#selector_box').add({
             xtype:'rallyreleasecombobox',
             allowNoEntry: true,
             padding: 5,
             fieldLabel: "Release:",
             labelWidth: 50,
+            width: 350,
             noEntryText: "-- All --",
             listeners: {
                 scope: this,
                 change: function(release_box, new_value, old_value, eOpts ) {
                     this.logger.log("Release Box Change",release_box.getRecord());
-                    this.down('#chart_box').removeAll();
                     this.gatherData(projectRef,projectOid,release_box.getRecord());
                 },
                 ready: function(release_box) {
@@ -344,12 +357,15 @@ Ext.define('Rally.technicalservices.Logger',{
                 }
             }
         });
+        
     },
     report_message: function(message) {
+        this.down('#chart_box').removeAll();
         this.down('#chart_box').add({xtype:'container',html:message});
     },
     gatherData: function(projectRef,projectOid,release) {
         this.logger.log("gatherData",projectOid,release);
+        this.down('#summary_box').update();
         this.loadIterations(projectRef, projectOid,release).then({
             scope: this,
             success: function(iterations) {
@@ -459,6 +475,38 @@ Ext.define('Rally.technicalservices.Logger',{
         return deferred;
     },
 
+    _indexOfMostRecentIteration: function(iterations){
+        var today = new Date();
+        var index = -1;
+        Ext.Array.each(iterations,function(iteration,idx){
+            if ( iteration.get('EndDate') < today ){
+                most_recent_iteration = iteration;
+                index = idx;
+            }
+        });
+        return index;
+    },
+    _updateSummaryBox: function(iterations,series){
+        var most_recent_iteration = null;
+        var most_recent_iteration_index = this._indexOfMostRecentIteration(iterations);
+        if ( most_recent_iteration_index > -1 ) {
+            most_recent_iteration = iterations[most_recent_iteration_index];
+        }
+        if ( most_recent_iteration !== null ) {
+            var summary_configuration = {
+                name: most_recent_iteration.get('Name')
+            };
+
+            Ext.Array.each(series, function(s){
+                var key = s.itemId;
+                if ( key && s.data.length > most_recent_iteration_index ) { 
+                    summary_configuration[key] = s.data[most_recent_iteration_index];
+                }
+            });
+            
+            this.down('#summary_box').update(summary_configuration);
+        }
+    },
     loadChart: function(iterations, capacities, projectOid, release) {
         this.logger.log("loadChart");
         
@@ -489,7 +537,13 @@ Ext.define('Rally.technicalservices.Logger',{
             },
 
             chartColors: ['#006b2f', '#009944', '#A40000', '#254361', '#8E8E8E', '#ee00000'],
-
+            listeners : {
+                scope: this,
+                snapshotsAggregated : function(c) {
+                    this.logger.log("afterrender",c.chartData.series);
+                    this._updateSummaryBox(iterations,c.chartData.series);
+                }
+            },
             chartConfig: {
                 chart: {
                     type: 'column',
@@ -539,6 +593,7 @@ Ext.define('Rally.technicalservices.Logger',{
         
         this.down('#chart_box').removeAll();
         this.down('#chart_box').add(chart);
+        this.logger.log("Chart Data",chart.getChartData());
     }
 });
 
@@ -553,9 +608,19 @@ Ext.define('Rally.technicalservices.Logger',{
 
 
     <style type="text/css">
-        .app {
-     /* Add app styles here */
+        
+ /* Add app styles here */
+ 
+.summary_table {
+    width: 250px ;
+    margin-left: auto ;
+    margin-right: auto ;
 }
+
+.summary_table td {
+    padding:3px;
+}
+
 
     </style>
 </head>
