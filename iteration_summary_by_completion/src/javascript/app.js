@@ -11,9 +11,12 @@ Ext.define('CustomApp', {
     logger: new Rally.technicalservices.Logger(),
     statics: {
         PAST_WITH_SOME_UNACCEPTED_WORK: "Try to accept work well before the end of the Iteration.",
+        PAST_WITH_SOME_UNCOMPLETED_WORK: "Try to finish work well before the end of the Iteration.",
         PAST_WITH_ACCEPTED_WORK_AFTER_END_DATE: "Some work accepted after the end of the Iteration.",
         CURRENT_WITH_SOME_UNACCEPTED_WORK: "Try to accept work well before the end of the Iteration.",
+        CURRENT_WITH_SOME_UNCOMPLETED_WORK: "Try to finish work well before the end of the Iteration.",
         CURRENT_WITH_NO_ACCEPTED_WORK: "You still have time, but try to accept your first story today or tomorrow.",
+        CURRENT_WITH_NO_COMPLETED_WORK: "You still have time, but try to finish your first story today or tomorrow.",
         PAST_WITH_DEFECTS: "Defects were not closed before the end of the Iteration.",
         CURRENT_WITH_DEFECTS: "We recommend addressing defects before considering a story \"done\".",
         CURRENT_TESTS_FAILING_TITLE: "{PERCENT}% Tests Passing",
@@ -340,14 +343,14 @@ Ext.define('CustomApp', {
                     // beyond half      : 0                     : warn
                     // beyond half      : >0                    : pending
 
-                    config.title = percentAccepted + "% Accepted";
+                    config.title = percentAccepted + "% Completed";
                     config.subtitle = "(" + Ext.util.Format.round(totalAcceptedPoints, 2) + " of " + Ext.util.Format.round(totalPlanEstimate, 2) + " " +
                             this.getContext().getWorkspace().WorkspaceConfiguration.IterationEstimateUnitName + ")";
                     config.message = "";
                     if (this.timeBoxInfo.daysRemaining === 0) {
                         if (percentAccepted < 100) {
                             config.status = "error";
-                            config.message = this.self.PAST_WITH_SOME_UNACCEPTED_WORK;
+                            config.message = this.self.PAST_WITH_SOME_UNCOMPLETED_WORK;
                             config.learnMore = "stories";
                         } else if (acceptedLate) {
                             config.message = this.self.PAST_WITH_ACCEPTED_WORK_AFTER_END_DATE;
@@ -370,13 +373,13 @@ Ext.define('CustomApp', {
                             config.status = "pending";
                         }
                         if (percentAccepted < 100) {
-                            config.message = this.self.CURRENT_WITH_SOME_UNACCEPTED_WORK;
+                            config.message = this.self.CURRENT_WITH_SOME_UNCOMPLETED_WORK;
                             config.learnMore = "stories";
                         }
                     } else {
                         config.status = "pending";
                         if (percentAccepted === 0) {
-                            config.message = this.self.CURRENT_WITH_NO_ACCEPTED_WORK;
+                            config.message = this.self.CURRENT_WITH_NO_COMPLETED_WORK;
                             config.learnMore = "stories";
                         }
                     }
