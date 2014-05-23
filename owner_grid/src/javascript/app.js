@@ -16,13 +16,14 @@ Ext.define('CustomApp', {
             fieldLabel: 'Owner:',
             labelWidth: 45,
             emptyText: "Type a letter...",
+            allowNoEntry: false,
             listeners: {
                 scope: this,
                 change: function(box,new_value) {
                     this.logger.log("change",box.getRecord());
                     var user_oid = box.getRecord().get('ObjectID');
                     if ( user_oid ) {
-                        this._makeGrid();
+                        this._makeGrid(user_oid);
                     }
                 }
             }
@@ -43,14 +44,18 @@ Ext.define('CustomApp', {
     _showError: function(message) {
         alert(message);
     },
-    _makeGrid: function() {
-        this.logger.log("_makeGrid");
+    _makeGrid: function(user_oid) {
+        this.logger.log("_makeGrid",user_oid);
+        this.down('#display_box').removeAll();
         
         var end_renderer = function(value,meta_data) {
             if ( !typeof(value) == "object" || value === null ) {
                 return value;
             }
             var display_value = value.ReleaseDate || value.EndDate;
+            if ( typeof(display_value) == 'undefined' ) {
+                return "";
+            }
             return display_value.replace(/T.*$/,"");
         };
         
@@ -59,6 +64,9 @@ Ext.define('CustomApp', {
                 return value;
             }
             var display_value = value.ReleaseStartDate || value.StartDate;
+            if ( typeof(display_value) == 'undefined' ) {
+                return "";
+            }
             return display_value.replace(/T.*$/,"");
         };
         
@@ -66,7 +74,8 @@ Ext.define('CustomApp', {
             xtype:'rallygrid',
             storeConfig: {
                 model:'User Story',
-                fetch: ['FormattedID','Name','Project','Iteration','StartDate','EndDate','ReleaseStartDate','ReleaseDate']
+                fetch: ['FormattedID','Name','Project','Iteration','StartDate','EndDate','ReleaseStartDate','ReleaseDate'],
+                filters: [{property:'Owner.ObjectID',value:user_oid}]
             },
             showRowActionsColumn:false,
             enableColumnMove:false,
