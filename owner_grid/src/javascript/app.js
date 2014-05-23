@@ -22,51 +22,68 @@ Ext.define('CustomApp', {
                     this.logger.log("change",box.getRecord());
                     var user_oid = box.getRecord().get('ObjectID');
                     if ( user_oid ) {
-                        this._getStoriesForOwner(user_oid).then({
-                            scope: this,
-                            success: this._makeGrid,
-                            failure: this._showError
-                        });
+                        this._makeGrid();
                     }
                 }
             }
         });
     },
-    _getStoriesForOwner: function(user_oid) {
-        this.logger.log("_getStoriesForOwner",user_oid);
-        var deferred = Ext.create('Deft.Deferred');
-        this.setLoading("Getting Stories...");
-        
-        Ext.create('Rally.data.wsapi.Store',{
-            model: 'User Story',
-            autoLoad: true,
-            listeners: {
-                scope: this,
-                load: function(store,records){
-                    deferred.resolve(store);
-                }
-            }
+    _addCalculatedFieldsToRecords: function(records){
+        var me = this;
+        Ext.Array.each(records,function(record){
+            me.logger.log("Iteration:",record.get('Iteration'));
+            var empty_iteration = {Name:'Unscheduled',StartDate:'',EndDate:''};
+            
+            
+            var iteration = record.get('Iteration') || empty_iteration;
+            record.set('__iteration_start',iteration.StartDate);
+            record.set('__iteration_end',  iteration.EndDate);
         });
-        return deferred;
     },
     _showError: function(message) {
         alert(message);
     },
-    _makeGrid: function(work_item_store) {
-        this.logger.log("_makeGrid",work_item_store);
+    _makeGrid: function() {
+        this.logger.log("_makeGrid");
+        
+        var end_renderer = function(value,meta_data) {
+            if ( !typeof(value) == "object" || value === null ) {
+                return value;
+            }
+            var display_value = value.ReleaseDate || value.EndDate;
+            return display_value.replace(/T.*$/,"");
+        };
+        
+        var start_renderer = function(value,meta_data) {
+            if ( !typeof(value) == "object" || value === null ) {
+                return value;
+            }
+            var display_value = value.ReleaseStartDate || value.StartDate;
+            return display_value.replace(/T.*$/,"");
+        };
         
         this.down('#display_box').add({
             xtype:'rallygrid',
-            store:work_item_store,
+            storeConfig: {
+                model:'User Story',
+                fetch: ['FormattedID','Name','Project','Iteration','StartDate','EndDate','ReleaseStartDate','ReleaseDate']
+            },
             showRowActionsColumn:false,
             enableColumnMove:false,
-            pagingToolbarCfg: {
-                store:work_item_store
-            },
             columnCfgs: [
                 {dataIndex:'FormattedID',text:'id',flex: 1},
                 {dataIndex:'Name',text:'Name'},
-                {dataIndex:'Project',text:'Project'}
+                {dataIndex:'Project',text:'Project'},
+                {dataIndex:'Release',text:'Release', getSortParameter: function() {
+                    return 'Release.ReleaseDate';
+                }},
+                {dataIndex:'Release', text:'Release Start', renderer: start_renderer, sortable: false },
+                {dataIndex:'Release', text:'Release End', renderer: end_renderer, sortable: false },
+                {dataIndex:'Iteration',text:'Iteration', getSortParameter: function() {
+                    return 'Iteration.EndDate';
+                }},
+                {dataIndex:'Iteration', text:'Iteration Start', renderer: start_renderer, sortable: false },
+                {dataIndex:'Iteration', text:'Iteration End', renderer: end_renderer, sortable: false }
             ]
         });
         this.setLoading(false);
