@@ -30,7 +30,7 @@ function initTaskboard() {
 
     RALLY.toolkit.HTML.createMaskLayer();
 
-	var ShowDebug = true; //Show console.log debug lines
+    var ShowDebug = false; // Show console.log debug output
     var statusDiv = null;
     var setStatus = function (msg) {
         if (!statusDiv) {
@@ -48,11 +48,11 @@ function initTaskboard() {
         statusDiv.innerHTML = msg || '';
     };
 
-    var insideRally = RALLY.toolkit.insideRally();
-    var showActuals = false;
-    var currentProjectOid = '__PROJECT_OID__';
-    var projectScopeUp = '__PROJECT_SCOPING_UP__' == 'true';
-    var projectScopeDown = '__PROJECT_SCOPING_DOWN__' == 'true';
+    var insideRally         = RALLY.toolkit.insideRally();
+    var showActuals         = false;
+    var currentProjectOid   = '__PROJECT_OID__';
+    var projectScopeUp      = '__PROJECT_SCOPING_UP__' == 'true';
+    var projectScopeDown    = '__PROJECT_SCOPING_DOWN__' == 'true';
 
     // use this to rebuild the full query, stitching in the
     // project scoping information from the top-level variables above
@@ -173,7 +173,8 @@ function initTaskboard() {
                 blocked: value.Blocked
             });
             html.push('<div class="state">' + state.display(false, value.ScheduleState == 'Accepted') + '</div>');
-            html.push('<img id="' + createIconId + '" src="' + RALLY.toolkit.Connection.getServerURL() + '/images/icon_pencil.gif" alt="Edit" />');
+            html.push('<img id="' + createIconId + '" src="' + RALLY.toolkit.Connection.getServerURL() + '/mashup/1.11/images/plus.gif" alt="Edit" />');
+            if (ShowDebug) {console.log("Debug: RALLY.toolkit.Connection.getServerURL()=",RALLY.toolkit.Connection.getServerURL());}
             html.push('<div class="id">' + value.FormattedID + '</div>');
             html.push('<div class="name">' + RALLY.toolkit.niceSubstring(value.Name, 100) + '</div>');
             html.push('<div class="' + ownerClass.join(' ') + '">' + owner + '</div>');
@@ -191,10 +192,10 @@ function initTaskboard() {
             
             Event.purgeElement(createIconId);
             Event.addListener(createIconId, 'click', function (e) {
-				  if (ShowDebug) {console.log("Debug: value=",         value);         }
-				  if (ShowDebug) {console.log("Debug: value.ObjectID=",value.ObjectID);}
-				  if (ShowDebug) {console.log("Debug: value._ref=",    value._ref);    }
-				  if (ShowDebug) {console.log("Debug: schema=",        schema);        }
+            if (ShowDebug) {console.log("Debug: value=",         value);         }
+            if (ShowDebug) {console.log("Debug: value.ObjectID=",value.ObjectID);}
+            if (ShowDebug) {console.log("Debug: value._ref=",    value._ref);    }
+            if (ShowDebug) {console.log("Debug: schema=",        schema);        }
                   rally.sdk.util.Navigation.popupCreatePage("task", {workProduct: value.ObjectID});
             });
         },
@@ -291,10 +292,10 @@ function initTaskboard() {
 
             Event.purgeElement(editIconId);
             Event.addListener(editIconId, 'click', function (e) {
-//                gridController.showEditor(item, schema);
-				  if (ShowDebug) {console.log("Debug: item=",item);}
-  				  if (ShowDebug) {console.log("Debug: schema=",schema);}
-                  rally.sdk.util.Navigation.popupEditPage("/task/" + item.ObjectID);
+//              gridController.showEditor(item, schema);
+                if (ShowDebug) {console.log("Debug: item=",item);}
+                if (ShowDebug) {console.log("Debug: schema=",schema);}
+                    rally.sdk.util.Navigation.popupEditPage("/task/" + item.ObjectID);
             });
             Event.purgeElement(deleteIconId);
             Event.addListener(deleteIconId, 'click', function (e) {
