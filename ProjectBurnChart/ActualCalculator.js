@@ -23,8 +23,7 @@ Ext.define('ActualCalculator', {
                     oldTotal = completedIterationTotals[iterationName] || 0;
                     completedIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
                 }
-            }
-            else {
+            } else {
                 for (var iter = 0, iterL = iterations.length; iter < iterL; iter++) {
                     iteration = iterations[iter];
                     iterationName = iteration.get('Name');
@@ -40,7 +39,7 @@ Ext.define('ActualCalculator', {
         var cumulativeActualSeriesData = [];
         var backlogRemainingSeriesData = [];
         var devIncreaseSeriesData = [];
-        var devIncrease;
+        var devIncrease = 0;
         var cumulativedevIncrease = 0;
         var previousBacklogRemaining = null;
         var categories = [];
@@ -68,12 +67,10 @@ Ext.define('ActualCalculator', {
 
             var backlogRemaining = incompleteIterationTotals[iterationName] || 0;
 
-
             if (i === 0) {
                 TotalPoints = backlogRemaining;
                 devIncreaseSeriesData.push(0);
-            }
-            else {
+            } else {
                 devIncrease = Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0);
                 cumulativedevIncrease += devIncrease;
                 devIncreaseSeriesData.push(devIncrease);
@@ -81,7 +78,8 @@ Ext.define('ActualCalculator', {
             }
             previousBacklogRemaining = backlogRemaining;
             if (pastIteration) {
-                backlogRemainingSeriesData.push(backlogRemaining - Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0));
+//                backlogRemainingSeriesData.push(backlogRemaining - Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0));
+                backlogRemainingSeriesData.push(backlogRemaining - devIncrease - Math.max(backlogRemaining - previousBacklogRemaining + completedIterationTotal, 0));
             }
 
 
@@ -95,37 +93,43 @@ Ext.define('ActualCalculator', {
 
         return {
             series: [
-            {
-                name: 'Work Done (Current iteration Accepted Points)',
-                data: actualSeriesData
-            },
+                {
+                    name: 'Work Done (Current iteration Accepted Points)',
+                    data: actualSeriesData,
+                    itemId: 'done'
+                },
                 {
                     name: 'Total Work (Cumulative Accepted Points)',
-                    data: cumulativeActualSeriesData
+                    data: cumulativeActualSeriesData,
+                    itemId: 'total'
                 },
 
                 {
                     name: 'Work Increase (Points per iteration)',
                     data: devIncreaseSeriesData,
-                    stack: '1'
+                    stack: '1',
+                    itemId: 'increase'
                 },
                 {
                     name: 'Backlog Remaining (Total Unaccepted Points)',
                     data: backlogRemainingSeriesData,
-                    stack: '1'
+                    stack: '1',
+                    itemId: 'remaining'
                 },
 
                 {
                     name: 'Burn down projection',
-                    data: backlogBurnProjectionSeriesData
+                    data: backlogBurnProjectionSeriesData,
+                    itemId: 'projection'
                 },
                 {
                     name: 'Ideal Line',
                     data: [[0, TotalPoints], [ReleaseIteration, 0]],
-                    type: 'line'
+                    type: 'line',
+                    itemId: 'ideal'
 
                 }
-                ],
+            ],
             categories: categories
         };
     },

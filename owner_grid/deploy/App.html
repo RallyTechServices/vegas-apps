@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Owned Story Grid</title>
+    <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Fri May 23 2014 06:49:03 GMT-0700 (PDT) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Fri May 23 2014 06:49:03 GMT-0700 (PDT)";
+        var CHECKSUM = 2928884919;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Ext.Component',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+     title: "Build Information",
+    
+    renderTpl: "<div id='{id}-infolinkWrap' class='tsinfolink'>--</div>",
+
+    initComponent: function() {
+        this.callParent(arguments);
+       
+    },
+    
+    onRender: function() {
+        this.callParent(arguments);
+        this.mon(this.el,'click',this.onClick,this);
+    },
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    _checkChecksum: function(container) {
+        var me = this;
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        if ( me.dialog ) {
+                            me.dialog.add({xtype:'container',html:'Checksums do not match'});
+                        }
+                    }
+                }
+            }
+        });
+    },
+    onClick: function(e) {
+        var me = this;
+        this._checkChecksum(this);
+        
+        var dialog_items = [];
+        
+        if ( this.informationHtml ) {
+            dialog_items.push({
+                xtype:'container',
+                html: this.informationHtml
+            });
+        }
+                
+        dialog_items.push({
+            xtype:'container',
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            dialog_items.push({
+                xtype:'container',
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+        
+        if (this.dialog){this.dialog.destroy();}
+        this.dialog = Ext.create('Rally.ui.dialog.Dialog',{
+            defaults: { padding: 5, margin: 5 },
+            closable: true,
+            draggable: true,
+            title: me.title,
+            items: dialog_items
+        });
+        this.dialog.show();
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('CustomApp', {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    items: [
+        {xtype:'container',itemId:'selector_box', margin: 5},
+        {xtype:'container',itemId:'display_box', margin: 5} 
+        /*,
+        {xtype:'tsinfolink'}
+        */
+    ],
+    launch: function() {
+        this.down('#selector_box').add({
+            xtype:'rallyusersearchcombobox',
+            project: this.getContext().getProject(),
+            fieldLabel: 'Owner:',
+            labelWidth: 45,
+            emptyText: "Type a letter...",
+            allowNoEntry: false,
+            listeners: {
+                scope: this,
+                change: function(box,new_value) {
+                    this.logger.log("change",box.getRecord());
+                    var user_oid = box.getRecord().get('ObjectID');
+                    if ( user_oid ) {
+                        this._makeGrid(user_oid);
+                    }
+                }
+            }
+        });
+    },
+    _addCalculatedFieldsToRecords: function(records){
+        var me = this;
+        Ext.Array.each(records,function(record){
+            me.logger.log("Iteration:",record.get('Iteration'));
+            var empty_iteration = {Name:'Unscheduled',StartDate:'',EndDate:''};
+            
+            
+            var iteration = record.get('Iteration') || empty_iteration;
+            record.set('__iteration_start',iteration.StartDate);
+            record.set('__iteration_end',  iteration.EndDate);
+        });
+    },
+    _showError: function(message) {
+        alert(message);
+    },
+    _makeGrid: function(user_oid) {
+        this.logger.log("_makeGrid",user_oid);
+        this.down('#display_box').removeAll();
+        
+        var end_renderer = function(value,meta_data) {
+            if ( !typeof(value) == "object" || value === null ) {
+                return value;
+            }
+            var display_value = value.ReleaseDate || value.EndDate;
+            if ( typeof(display_value) == 'undefined' ) {
+                return "";
+            }
+            return display_value.replace(/T.*$/,"");
+        };
+        
+        var start_renderer = function(value,meta_data) {
+            if ( !typeof(value) == "object" || value === null ) {
+                return value;
+            }
+            var display_value = value.ReleaseStartDate || value.StartDate;
+            if ( typeof(display_value) == 'undefined' ) {
+                return "";
+            }
+            return display_value.replace(/T.*$/,"");
+        };
+        
+        var grid = this.down('#display_box').add({
+            xtype:'rallygrid',
+            storeConfig: {
+                model:'User Story',
+                fetch: ['FormattedID','Name','Project','Iteration','StartDate','EndDate','ReleaseStartDate','ReleaseDate'],
+                filters: [{property:'Owner.ObjectID',value:user_oid}]
+            },
+            showRowActionsColumn:false,
+            enableColumnMove:false,
+            columnCfgs: [
+                {dataIndex:'FormattedID',text:'id',flex: 1},
+                {dataIndex:'Name',text:'Name'},
+                {dataIndex:'Project',text:'Project'},
+                {dataIndex:'Release',text:'Release', getSortParameter: function() {
+                    return 'Release.ReleaseDate';
+                }},
+                {dataIndex:'Release', text:'Release Start', renderer: start_renderer, sortable: false },
+                {dataIndex:'Release', text:'Release End', renderer: end_renderer, sortable: false },
+                {dataIndex:'Iteration',text:'Iteration', getSortParameter: function() {
+                    return 'Iteration.EndDate';
+                }},
+                {dataIndex:'Iteration', text:'Iteration Start', renderer: start_renderer, sortable: false },
+                {dataIndex:'Iteration', text:'Iteration End', renderer: end_renderer, sortable: false }
+            ]
+        });
+        // have to do the sort after the grid is ready so that we can use the column's sorter,
+        // because the store doesn't understand the Release fields
+        
+        grid.on('load',function() { 
+                var columns = grid.query('gridcolumn');
+                columns[3].doSort('ASC');
+            }, this, { single: true });
+    }
+});
+
+            
+               Rally.launchApp('CustomApp', {
+                   name: 'Owned Story Grid'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width:5%;
+}
+    </style>
+
+</head>
+<body></body>
+</html>

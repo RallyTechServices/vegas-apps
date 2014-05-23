@@ -1,58 +1,85 @@
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
     items: [
-        {xtype:'container',itemId:'selector_box',margin: 10 },
-        {xtype:'container',itemId:'chart_box', margin: 10 }
+        {xtype:'container',itemId:'selector_box',margin: 10, layout: { type: 'hbox' } },
+        {xtype:'container',itemId:'chart_box', margin: 10},
+        {xtype:'container',itemId:'summary_box', margin: 10, tpl: '<tpl>' +
+                '<div class="summary_table"> <table >' +
+            '<tr><td>Most Recent Iteration </td><td>{name}</td></tr>' +
+            '<tr><td>Work Done (Current) </td><td>{done}</td></tr>' +
+            '<tr><td>Total Work (Cumulative) </td><td>{total}</td></tr>' +
+            '<tr><td>Work Increase </td><td>{increase}</td></tr>' +
+            '<tr><td>Backlog Remaining </td><td>{remaining}</td></tr>' +
+            '</table></div>' + 
+            '</tpl>' }
     ],
     launch: function() {
-        this.setLoading(true);
-
+        //this.setLoading(true);
+        this.logger.log("Launched with context: ", this.getContext());
         var projectRef = this.getContext().getProjectRef();
         var projectOid = this.getContext().getProject().ObjectID;
-
         this.down('#selector_box').add({
             xtype:'rallyreleasecombobox',
             allowNoEntry: true,
+            padding: 5,
+            fieldLabel: "Release:",
+            labelWidth: 50,
+            width: 350,
             noEntryText: "-- All --",
             listeners: {
                 scope: this,
                 change: function(release_box, new_value, old_value, eOpts ) {
-                    console.log("Change Release", new_value, release_box.getRecord());
-                    this.down('#chart_box').removeAll();
+                    this.logger.log("Release Box Change",release_box.getRecord());
                     this.gatherData(projectRef,projectOid,release_box.getRecord());
+                },
+                ready: function(release_box) {
+                    this.logger.log("Release Box Ready",release_box.getRecord());
+                    if ( release_box.getRecord().get('Name') == "-- All --") {
+                        this.gatherData(projectRef,projectOid,release_box.getRecord());
+                    }
                 }
             }
         });
+        
+    },
+    report_message: function(message) {
+        this.down('#chart_box').removeAll();
+        this.down('#chart_box').add({xtype:'container',html:message});
     },
     gatherData: function(projectRef,projectOid,release) {
+        this.logger.log("gatherData",projectOid,release);
+        this.down('#summary_box').update();
         this.loadIterations(projectRef, projectOid,release).then({
             scope: this,
             success: function(iterations) {
-                console.log("back from iterations",iterations);
-                var iterationFilters = this.getIterationFilters(iterations);
+                if ( iterations.length === 0 ) {
+                    this.report_message('No iterations defined.');
+                } else {
+                    var iterationFilters = this.getIterationFilters(iterations);
 
-                this.loadCapacities(projectRef, projectOid, iterationFilters).then({
-                    scope: this,
-                    success: function(capacities) {
-                        console.log("back from capacities",capacities);
-                        this.setLoading(false);
-                        this.loadChart(iterations, capacities, projectOid, release);
-                    },
-                    failure: function(error) {
-                        console.log("Failed to load iteration capacities");
-                        console.log(error);
-                    }
-                });
+                    this.loadCapacities(projectRef, projectOid, iterationFilters).then({
+                        scope: this,
+                        success: function(capacities) {
+                            this.setLoading(false);
+                            this.loadChart(iterations, capacities, projectOid, release);
+                        },
+                        failure: function(error) {
+                            console.log("Failed to load iteration capacities");
+                            alert("Error while loading iteration capacities: " + error);
+                        }
+                    });
+                }
             },
             failure: function(error) {
                 console.log("Failed to load iterations for project '" + projectRef + "'");
-                console.log(error);
+                alert("Error while loading iterations: " + error);
             }
         });
     },
     getIterationFilters: function(iterations) {
-        console.log("getIterationFilters",iterations);
+        this.logger.log("getIterationFilters",iterations);
         var iterationFilters = [];
         for (var i = 0, l = iterations.length; i < l; i++) {
             iterationFilters.push({
@@ -65,7 +92,6 @@ Ext.define('CustomApp', {
 
     loadIterations: function(projectRef, projectOid, release) {
         var deferred = Ext.create('Deft.Deferred');
-        console.log("loadIterations",projectRef,projectOid,release);
         
         var filters = [{ property: 'Project', value: projectRef }];
         
@@ -93,8 +119,9 @@ Ext.define('CustomApp', {
                 }
             ],
             listeners: {
+                scope: this,
                 load: function(store,records,successful){
-                    console.log("returned with ", records, successful);
+                    this.logger.log("got iterations", records, successful);
                     if ( successful ) {
                         deferred.resolve(records);
                     } else {
@@ -107,7 +134,7 @@ Ext.define('CustomApp', {
     },
     loadCapacities: function(projectRef, projectOid, iterationFilters) {
         var deferred = Ext.create('Deft.Deferred');
-        console.log('loadCapacities',projectRef,projectOid);
+        this.logger.log("loadCapacities");
         
         Ext.create('Rally.data.wsapi.Store', {
             model: 'useriterationcapacity',
@@ -133,8 +160,40 @@ Ext.define('CustomApp', {
         return deferred;
     },
 
+    _indexOfMostRecentIteration: function(iterations){
+        var today = new Date();
+        var index = -1;
+        Ext.Array.each(iterations,function(iteration,idx){
+            if ( iteration.get('EndDate') < today ){
+                most_recent_iteration = iteration;
+                index = idx;
+            }
+        });
+        return index;
+    },
+    _updateSummaryBox: function(iterations,series){
+        var most_recent_iteration = null;
+        var most_recent_iteration_index = this._indexOfMostRecentIteration(iterations);
+        if ( most_recent_iteration_index > -1 ) {
+            most_recent_iteration = iterations[most_recent_iteration_index];
+        }
+        if ( most_recent_iteration !== null ) {
+            var summary_configuration = {
+                name: most_recent_iteration.get('Name')
+            };
+
+            Ext.Array.each(series, function(s){
+                var key = s.itemId;
+                if ( key && s.data.length > most_recent_iteration_index ) { 
+                    summary_configuration[key] = s.data[most_recent_iteration_index];
+                }
+            });
+            
+            this.down('#summary_box').update(summary_configuration);
+        }
+    },
     loadChart: function(iterations, capacities, projectOid, release) {
-        console.log("loadChart",iterations,capacities,projectOid,release);
+        this.logger.log("loadChart");
         
         var filters = {
             '_ProjectHierarchy': projectOid,
@@ -163,7 +222,13 @@ Ext.define('CustomApp', {
             },
 
             chartColors: ['#006b2f', '#009944', '#A40000', '#254361', '#8E8E8E', '#ee00000'],
-
+            listeners : {
+                scope: this,
+                snapshotsAggregated : function(c) {
+                    this.logger.log("afterrender",c.chartData.series);
+                    this._updateSummaryBox(iterations,c.chartData.series);
+                }
+            },
             chartConfig: {
                 chart: {
                     type: 'column',
@@ -213,5 +278,6 @@ Ext.define('CustomApp', {
         
         this.down('#chart_box').removeAll();
         this.down('#chart_box').add(chart);
+        this.logger.log("Chart Data",chart.getChartData());
     }
 });
