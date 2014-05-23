@@ -62,7 +62,7 @@ Ext.define('CustomApp', {
             return display_value.replace(/T.*$/,"");
         };
         
-        this.down('#display_box').add({
+        var grid = this.down('#display_box').add({
             xtype:'rallygrid',
             storeConfig: {
                 model:'User Story',
@@ -86,6 +86,12 @@ Ext.define('CustomApp', {
                 {dataIndex:'Iteration', text:'Iteration End', renderer: end_renderer, sortable: false }
             ]
         });
-        this.setLoading(false);
+        // have to do the sort after the grid is ready so that we can use the column's sorter,
+        // because the store doesn't understand the Release fields
+        
+        grid.on('load',function() { 
+                var columns = grid.query('gridcolumn');
+                columns[3].doSort('ASC');
+            }, this, { single: true });
     }
 });

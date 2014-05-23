@@ -3,11 +3,11 @@
 <head>
     <title>Owned Story Grid</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri May 23 2014 05:46:35 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri May 23 2014 06:40:03 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri May 23 2014 05:46:35 GMT-0700 (PDT)";
-        var CHECKSUM = 2511608370;
+        var APP_BUILD_DATE = "Fri May 23 2014 06:40:03 GMT-0700 (PDT)";
+        var CHECKSUM = 2705917864;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
@@ -201,7 +201,7 @@ Ext.define('CustomApp', {
             return display_value.replace(/T.*$/,"");
         };
         
-        this.down('#display_box').add({
+        var grid = this.down('#display_box').add({
             xtype:'rallygrid',
             storeConfig: {
                 model:'User Story',
@@ -225,7 +225,13 @@ Ext.define('CustomApp', {
                 {dataIndex:'Iteration', text:'Iteration End', renderer: end_renderer, sortable: false }
             ]
         });
-        this.setLoading(false);
+        // have to do the sort after the grid is ready so that we can use the column's sorter,
+        // because the store doesn't understand the Release fields
+        
+        grid.on('load',function() { 
+                var columns = grid.query('gridcolumn');
+                columns[3].doSort('ASC');
+            }, this, { single: true });
     }
 });
 
