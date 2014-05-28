@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Iteration Adjuster</title>
+    <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Tue May 27 2014 18:11:26 GMT-0700 (PDT) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Tue May 27 2014 18:11:26 GMT-0700 (PDT)";
+        var CHECKSUM = 4601872144;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Ext.Component',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+     title: "Build Information",
+    
+    renderTpl: "<div id='{id}-infolinkWrap' class='tsinfolink'>--</div>",
+
+    initComponent: function() {
+        this.callParent(arguments);
+       
+    },
+    
+    onRender: function() {
+        this.callParent(arguments);
+        this.mon(this.el,'click',this.onClick,this);
+    },
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    _checkChecksum: function(container) {
+        var me = this;
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        if ( me.dialog ) {
+                            me.dialog.add({xtype:'container',html:'Checksums do not match'});
+                        }
+                    }
+                }
+            }
+        });
+    },
+    onClick: function(e) {
+        var me = this;
+        this._checkChecksum(this);
+        
+        var dialog_items = [];
+        
+        if ( this.informationHtml ) {
+            dialog_items.push({
+                xtype:'container',
+                html: this.informationHtml
+            });
+        }
+                
+        dialog_items.push({
+            xtype:'container',
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            dialog_items.push({
+                xtype:'container',
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+        
+        if (this.dialog){this.dialog.destroy();}
+        this.dialog = Ext.create('Rally.ui.dialog.Dialog',{
+            defaults: { padding: 5, margin: 5 },
+            closable: true,
+            draggable: true,
+            title: me.title,
+            items: dialog_items
+        });
+        this.dialog.show();
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('CustomApp', {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    items: [
+        {xtype:'container',itemId:'display_box', margin: 10, cls:'tsnumber'},
+        {xtype:'container',itemId:'button_box', cls:'tscenter'}
+        /*,
+        {xtype:'tsinfolink'}
+        */
+    ],
+    launch: function() {
+        this.setLoading('Finding Velocities...');
+        Deft.Promise.all([this._getPastIterations(),this._getFutureIterations()]).then({
+            scope: this,
+            success: function(iterations) {
+                this.logger.log("Found iterations",iterations);
+                var past_iterations = iterations[0];
+                var future_iterations = iterations[1];
+                this._getVelocitiesForIterations(past_iterations).then({
+                    scope: this,
+                    success: function(velocities){
+                        this.logger.log("velocities ",velocities);
+                        var average = Ext.Array.mean(velocities);
+                        this.logger.log("average ", average);
+                        this.down('#display_box').add({xtype:'container',html:'<span>' + average + '</span>'});
+                        this._addButton(average,future_iterations);
+                    },
+                    failure: function(message){
+                        alert(message);
+                    }
+                });
+            }
+        });
+    },
+    _addButton: function(velocity,iterations) {
+        this.setLoading(false);
+        this.down('#button_box').add({
+            xtype:'rallybutton',
+            text:'Set Planned Velocity For Future Iterations',
+            scope: this,
+            handler: function() {
+                this._setVelocity(velocity,iterations)
+            }
+        });
+    },
+    _getPastIterations: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var today = new Date();
+        var today_iso = Rally.util.DateTime.toIsoString(today);
+        Ext.create('Rally.data.wsapi.Store',{
+            model: 'Iteration',
+            autoLoad: true,
+            limit: 5,
+            pageSize: 5,
+            filters: [{property:'EndDate',operator:'<',value:today_iso}],
+            sorters: [{property:'EndDate',direction:'DESC'}],
+            context: {
+                projectScopeDown: false,
+                projectScopeUp: false
+            },
+            listeners: {
+                scope: this,
+                load: function(store,iterations){
+                    deferred.resolve(iterations);
+                }
+            }
+        });
+        return deferred;
+    },
+    _getFutureIterations: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var today = new Date();
+        var today_iso = Rally.util.DateTime.toIsoString(today);
+        Ext.create('Rally.data.wsapi.Store',{
+            model: 'Iteration',
+            autoLoad: true,
+            filters: [{property:'StartDate',operator:'>',value:today_iso}],
+            sorters: [{property:'StartDate',direction:'ASC'}],
+            context: {
+                projectScopeDown: false,
+                projectScopeUp: false
+            },
+            listeners: {
+                scope: this,
+                load: function(store,iterations){
+                    deferred.resolve(iterations);
+                }
+            }
+        });
+        return deferred;
+    },
+    _getVelocitiesForIterations: function(past_iterations){
+        var me = this;
+        var promises = [];
+        this.logger.log("_getVelocitiesForIterations");
+        Ext.Array.each(past_iterations,function(past_iteration){
+            promises.push(me._getVelocityForIteration(past_iteration));
+        },this);
+        return Deft.Promise.all(promises);
+    },
+    _getVelocityForIteration: function(iteration) {
+        var deferred = Ext.create('Deft.Deferred');
+        var velocity = 0;
+        var filters = [
+            { property:'Iteration.ObjectID',value: iteration.get('ObjectID') },
+            { property:'ScheduleState',operator: '>',value:'Completed' }
+        ];
+        Ext.create('Rally.data.wsapi.Store',{
+            model: 'UserStory',
+            autoLoad: true,
+            filters: filters,
+            listeners: {
+                scope: this,
+                load: function(store,stories){
+                    this.logger.log("  ", iteration.get('Name'),'# accepted stories', stories.length);
+                    Ext.create('Rally.data.wsapi.Store',{
+                        model:'Defect',
+                        autoLoad:true,
+                        filters:filters,
+                        listeners: {
+                            scope: this,
+                            load: function(store,defects){
+                                this.logger.log("  ",iteration.get('Name'),'# accepted defects', defects.length);
+                                var items = Ext.Array.push(defects,stories);
+                                Ext.Array.each(items,function(item){
+                                    var estimate = item.get('PlanEstimate') || 0;
+                                    velocity += estimate;
+                                });
+                                this.logger.log("Velocity for " + iteration.get('Name') + " is:",velocity);
+                                deferred.resolve(velocity);
+                            }
+                        }
+                    });
+                }
+            }
+        });
+        return deferred;
+    },
+    _setVelocity: function(velocity,iterations) {
+        this.setLoading("Setting Velocity...");
+        var promises = [];
+        Ext.Array.each(iterations,function(iteration){
+            promises.push(this._setVelocityForIteration(velocity,iteration));
+        },this);
+        Deft.Promise.all(promises).then({
+            scope: this,
+            success: function(response){
+                this.setLoading(false);
+            },
+            failure: function(message){
+                alert(message);
+                this.setLoading(false);
+            }
+        });
+    },
+    _setVelocityForIteration: function(velocity,iteration){
+        var deferred = Ext.create('Deft.Deferred');
+        iteration.set('PlannedVelocity',velocity);
+        iteration.save({
+            callback: function(result, operation) {
+                if(operation.wasSuccessful()) {
+                    deferred.resolve(result);
+                } else {
+                    deferred.reject("Problem saving");
+                }
+            }
+        });
+        return deferred;
+    }
+});
+
+            
+               Rally.launchApp('CustomApp', {
+                   name: 'Iteration Adjuster'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+
+.tsnumber {
+    text-align: center;
+    font-family:"Times New Roman",Georgia,Serif;
+    font-size: 500%;
+}
+
+.tscenter {
+    margin-left: auto;
+    margin-right: auto;
+    width: 250px;
+}
+
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width:5%;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
