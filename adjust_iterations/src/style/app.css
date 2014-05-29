@@ -7,6 +7,12 @@
     font-size: 500%;
 }
 
+.tscenternumber {
+    margin-left: auto;
+    margin-right: auto;
+    width: 150px;
+}
+
 .tscenter {
     text-align: center;
     font-family:"Trebuchet MS", Helvetica, sans-serif;

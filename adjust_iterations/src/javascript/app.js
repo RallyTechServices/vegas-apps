@@ -3,7 +3,7 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     items: [
-        {xtype:'container',itemId:'display_box', margin: 10},
+        {xtype:'container',itemId:'display_box', margin: 10 },
         {xtype:'container',itemId:'button_box',cls:'tscenter'}
         /*,
         {xtype:'tsinfolink'}
@@ -11,13 +11,44 @@ Ext.define('CustomApp', {
     ],
     launch: function() {
         this.setLoading('Finding Velocities...');
+        this.down('#display_box').add({
+            xtype:'container',
+            cls:'tscenternumber',
+            items: [{
+                xtype:'numberfield',
+                itemId:'number_box',
+                fieldCls:'tsnumber',
+                fieldStyle: 'font-size:500%;height:100px;display: block; margin : 0 auto;',
+                value:null,
+                height: 100,
+                hideTrigger:true,
+                minValue:0,
+                listeners: {
+                    scope: this,
+                    change: function(box,new_value){
+                        this.logger.log(this.average,new_value);
+                        if ( new_value > this.average ) {
+                            box.setFieldStyle('background-color: #FBFBEF;');
+                        } else if ( new_value < this.average ) {
+                            box.setFieldStyle('background-color: #EFF8FB');
+                        } else {
+                            box.setFieldStyle('background-color: #FFF');
+                        }
+                    }
+                }
+            }]
+        });
         this.down('#display_box').add({xtype:'container',itemId:'velocity_box',tpl:this._getDisplayTemplate()});
+        
         if (typeof(this.getAppId()) == 'undefined' ) {
             // not inside Rally
             this._showExternalSettingsDialog(this.getSettingsFields());
         } else {
             this._getData();
         }
+    },
+    _showChangeDialog: function() {
+        this.logger.log('_showChangeDialog');
     },
     _getData: function() {
         var include_current_iteration = this.getSetting('include_current_iteration');
@@ -34,11 +65,13 @@ Ext.define('CustomApp', {
                         this.logger.log("velocities ",velocities);
                         var average = Ext.Array.mean(velocities);
                         this.logger.log("average ", average);
+                        
+                        this.average = average;
+                        this.down('#number_box').setValue(average);
                         this.down('#velocity_box').update({
-                            average:average,
                             include_current_iteration:include_current_iteration
                         });
-                        this._addButton(average,future_iterations);
+                        this._addButton(future_iterations);
                     },
                     failure: function(message){
                         alert(message);
@@ -50,7 +83,6 @@ Ext.define('CustomApp', {
     _getDisplayTemplate: function() {
         return new Ext.XTemplate(
             '<tpl>',
-                '<div class="tsnumber">{average}</div>',
                 '<div class="tscenter">',
                 '<tpl if="include_current_iteration">',
                     'Includes Current Iteration',
@@ -61,13 +93,14 @@ Ext.define('CustomApp', {
             '</tpl>'
         );
     },
-    _addButton: function(velocity,iterations) {
+    _addButton: function(iterations) {
         this.setLoading(false);
         this.down('#button_box').add({
             xtype:'rallybutton',
             text:'Set Planned Velocity For Future Iterations',
             scope: this,
             handler: function() {
+                var velocity = this.down('#number_box').getValue();
                 this._setVelocity(velocity,iterations)
             }
         });
