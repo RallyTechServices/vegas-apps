@@ -3,15 +3,26 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     items: [
-        {xtype:'container',itemId:'display_box', margin: 10, cls:'tsnumber'},
-        {xtype:'container',itemId:'button_box', cls:'tscenter'}
+        {xtype:'container',itemId:'display_box', margin: 10},
+        {xtype:'container',itemId:'button_box',cls:'tscenter'}
         /*,
         {xtype:'tsinfolink'}
         */
     ],
     launch: function() {
         this.setLoading('Finding Velocities...');
-        Deft.Promise.all([this._getPastIterations(),this._getFutureIterations()]).then({
+        this.down('#display_box').add({xtype:'container',itemId:'velocity_box',tpl:this._getDisplayTemplate()});
+        if (typeof(this.getAppId()) == 'undefined' ) {
+            // not inside Rally
+            this._showExternalSettingsDialog(this.getSettingsFields());
+        } else {
+            this._getData();
+        }
+    },
+    _getData: function() {
+        var include_current_iteration = this.getSetting('include_current_iteration');
+
+        Deft.Promise.all([this._getPastIterations(include_current_iteration),this._getFutureIterations()]).then({
             scope: this,
             success: function(iterations) {
                 this.logger.log("Found iterations",iterations);
@@ -23,7 +34,10 @@ Ext.define('CustomApp', {
                         this.logger.log("velocities ",velocities);
                         var average = Ext.Array.mean(velocities);
                         this.logger.log("average ", average);
-                        this.down('#display_box').add({xtype:'container',html:'<span>' + average + '</span>'});
+                        this.down('#velocity_box').update({
+                            average:average,
+                            include_current_iteration:include_current_iteration
+                        });
                         this._addButton(average,future_iterations);
                     },
                     failure: function(message){
@@ -32,6 +46,20 @@ Ext.define('CustomApp', {
                 });
             }
         });
+    },
+    _getDisplayTemplate: function() {
+        return new Ext.XTemplate(
+            '<tpl>',
+                '<div class="tsnumber">{average}</div>',
+                '<div class="tscenter">',
+                '<tpl if="include_current_iteration">',
+                    'Includes Current Iteration',
+                '<tpl else>',
+                    'Does Not Include Current Iteration',
+                '</tpl>',
+                '</div>',
+            '</tpl>'
+        );
     },
     _addButton: function(velocity,iterations) {
         this.setLoading(false);
@@ -44,16 +72,22 @@ Ext.define('CustomApp', {
             }
         });
     },
-    _getPastIterations: function() {
+    _getPastIterations: function(include_current_iteration) {
         var deferred = Ext.create('Deft.Deferred');
+        this.logger.log("_getPastIterations",include_current_iteration);
+        
         var today = new Date();
         var today_iso = Rally.util.DateTime.toIsoString(today);
+        var filters = [{property:'EndDate',operator:'<',value:today_iso}];
+        if (include_current_iteration) {
+            filters = [{property:'StartDate',operator:'<',value:today_iso}];
+        }
         Ext.create('Rally.data.wsapi.Store',{
             model: 'Iteration',
             autoLoad: true,
             limit: 5,
             pageSize: 5,
-            filters: [{property:'EndDate',operator:'<',value:today_iso}],
+            filters: filters,
             sorters: [{property:'EndDate',direction:'DESC'}],
             context: {
                 projectScopeDown: false,
@@ -167,5 +201,56 @@ Ext.define('CustomApp', {
             }
         });
         return deferred;
+    },
+    getSettingsFields: function() {
+        return [
+            {
+                name: 'include_current_iteration',
+                xtype: 'rallycheckboxfield',
+                fieldLabel: 'Include Current Iteration in Calculation',
+                width: 300,
+                labelWidth: 200/*,
+                readyEvent: 'added'*/ //event fired to signify readiness
+            }
+        ];
+    },
+    // ONLY FOR RUNNING EXTERNALLY
+    _showExternalSettingsDialog: function(fields){
+        var me = this;
+        if ( this.settings_dialog ) { this.settings_dialog.destroy(); }
+        this.settings_dialog = Ext.create('Rally.ui.dialog.Dialog', {
+             autoShow: false,
+             draggable: true,
+             width: 400,
+             title: 'Settings',
+             buttons: [{ 
+                text: 'OK',
+                handler: function(cmp){
+                    var settings = {};
+                    Ext.Array.each(fields,function(field){
+                        settings[field.name] = cmp.up('rallydialog').down('[name="' + field.name + '"]').getValue();
+                    });
+                    me.settings = settings;
+                    cmp.up('rallydialog').destroy();
+                    me._getData();
+                }
+            }],
+             items: [
+                {xtype:'container',html: "&nbsp;", padding: 5, margin: 5},
+                {xtype:'container',itemId:'field_box', padding: 5, margin: 5}]
+         });
+         Ext.Array.each(fields,function(field){
+            me.settings_dialog.down('#field_box').add(field);
+         });
+         this.settings_dialog.show();
+    },
+    resizeIframe: function() {
+        var iframeContentHeight = 800;    
+        var container = window.frameElement.parentElement;
+        if (container != parent.document.body) {
+            container.style.height = iframeContentHeight + 'px';
+        }
+        window.frameElement.style.height = iframeContentHeight + 'px';
+        return;
     }
 });

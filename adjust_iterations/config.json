@@ -1,6 +1,6 @@
 {
     "name": "Iteration Adjuster",
     "className": "CustomApp",
-    "server": "https://demo-services1.rallydev.com",
+    "server": "https://demo-west.rallydev.com",
     "sdk": "2.0rc2"
 }

@@ -3,11 +3,17 @@
 
 .tsnumber {
     text-align: center;
-    font-family:"Times New Roman",Georgia,Serif;
+    font-family:"Trebuchet MS", Helvetica, sans-serif;
     font-size: 500%;
 }
 
 .tscenter {
+    text-align: center;
+    font-family:"Trebuchet MS", Helvetica, sans-serif;
+    color: #A0A0A0;
+}
+
+.tscenterbutton {
     margin-left: auto;
     margin-right: auto;
     width: 250px;
