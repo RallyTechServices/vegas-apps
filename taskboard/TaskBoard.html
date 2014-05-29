@@ -27,9 +27,8 @@
 <script type="text/javascript">
 
 function initTaskboard() {
-
     RALLY.toolkit.HTML.createMaskLayer();
-
+    
     var ShowDebug = false; // Show console.log debug output
     var statusDiv = null;
     var setStatus = function (msg) {
@@ -74,8 +73,8 @@ function initTaskboard() {
 
             "tasks": "/tasks?fetch=taskindex,name,objectid,formattedid,owner,blocked,estimate,todo,actuals,state,workproduct&query=(Iteration = ${iteration})" + scoping + paging,
 
-            "stories": "/hierarchicalrequirement?fetch=rank,blocked,formattedid,name,objectid,owner,project,schedulestate,taskestimatetotal,taskremainingtotal,taskactualtotal,tasks&order=Rank&query=(Iteration = ${iteration})" + scoping + paging,
-            "defects": "/defect?fetch=rank,blocked,formattedid,name,objectid,owner,project,schedulestate,taskestimatetotal,taskremainingtotal,taskactualtotal&order=Rank&query=(Iteration = ${iteration})" + scoping + paging,
+            "stories": "/hierarchicalrequirement?fetch=description,rank,blocked,formattedid,name,objectid,owner,project,schedulestate,taskestimatetotal,taskremainingtotal,taskactualtotal,tasks&order=Rank&query=(Iteration = ${iteration})" + scoping + paging,
+            "defects": "/defect?fetch=description,rank,blocked,formattedid,name,objectid,owner,project,schedulestate,taskestimatetotal,taskremainingtotal,taskactualtotal&order=Rank&query=(Iteration = ${iteration})" + scoping + paging,
             "defectsuite": "/defectsuite?fetch=rank,blocked,formattedid,name,objectid,owner,project,schedulestate,taskestimatetotal,taskremainingtotal,taskactualtotal&order=Rank&query=(Iteration = ${iteration})" + scoping + paging,
             "testsets": "/testset?fetch=rank,blocked,formattedid,name,objectid,owner,project,schedulestate,taskestimatetotal,taskremainingtotal,taskactualtotal&query=(Iteration = ${iteration})" + scoping + paging
         };
@@ -175,7 +174,19 @@ function initTaskboard() {
             html.push('<div class="state">' + state.display(false, value.ScheduleState == 'Accepted') + '</div>');
             html.push('<img id="' + createIconId + '" src="' + RALLY.toolkit.Connection.getServerURL() + '/mashup/1.11/images/plus.gif" alt="Edit" />');
             if (ShowDebug) {console.log("Debug: RALLY.toolkit.Connection.getServerURL()=",RALLY.toolkit.Connection.getServerURL());}
-            html.push('<div class="id">' + value.FormattedID + '</div>');
+            
+            console.log(value);
+            html.push('<div class="id information_popup_container">');
+            html.push('<div class="information">');
+            html.push('<a target="_blank" href="/#/detail/userstory/' + value.ObjectID + '">' + value.FormattedID + '</a>');
+            html.push('</div>');
+            html.push('<div id="description" class="popup_information">');
+//            html.push('<div class="popup_information">');
+            html.push(value.Description);
+            html.push('</div>');
+            html.push('</div>');
+            //CHANGE
+            //html.push('<div class="id">' + value.FormattedID + '</div>');
             html.push('<div class="name">' + RALLY.toolkit.niceSubstring(value.Name, 100) + '</div>');
             html.push('<div class="' + ownerClass.join(' ') + '">' + owner + '</div>');
 
@@ -1175,6 +1186,35 @@ YAHOO.util.Event.addListener(window, 'load', initTaskboard);
 
     .show-progress {
         cursor: progress;
+    }
+    
+    /** for the hover over **/
+    div.information_popup_container {
+        position: absolute;
+        margin-top: 10px;
+        width:0px;
+        height:0px;
+        /* Position Information */
+        /* Appearance Information */
+    }
+    div.information_popup_container > div.information {
+        /* Position Information */
+        /* Appearance Information */
+    }
+    div.information_popup_container > div.popup_information {
+        position: fixed;
+        visibility: hidden;
+        /* Position Information */
+        /* Appearance Information */
+    }
+    div.information_popup_container > div.information:hover + div.popup_information {
+        visibility: visible;
+        background-color: white;
+        padding: 5px;
+        height: 200px;
+        width: 800px;
+        overflow:scroll;
+        z-index: 200;
     }
 </style>
 </head>
