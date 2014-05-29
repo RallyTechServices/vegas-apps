@@ -18,3 +18,17 @@ in columns that are their state and rows that are their workproducts.  The **add
 
 This is a modification of a customer-created app that provides a great many things with respect to showing
 a progress chart.  This addition is to limit the data by release.
+
+### owner_grid
+
+This is a grid of stories owned by a selected user.  The exciting bit is that sorting on the release or iteration sorts by end date of that timebox.
+
+### iteration_summary_by_completion
+
+Change the iteration summary app so that completion is the marker for done instead of accepted.
+
+### adjust_iterations
+
+Show a table of sprints so that the user can set the planned velocity based on aaverage velocity
+
+

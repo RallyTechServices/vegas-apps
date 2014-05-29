@@ -1,0 +1,32 @@
+.app {
+}
+
+.tsnumber {
+    text-align: center;
+    font-family:"Trebuchet MS", Helvetica, sans-serif;
+    font-size: 500%;
+}
+
+.tscenternumber {
+    margin-left: auto;
+    margin-right: auto;
+    width: 150px;
+}
+
+.tscenter {
+    text-align: center;
+    font-family:"Trebuchet MS", Helvetica, sans-serif;
+    color: #A0A0A0;
+}
+
+.tscenterbutton {
+    margin-left: auto;
+    margin-right: auto;
+    width: 250px;
+}
+
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width:5%;
+}

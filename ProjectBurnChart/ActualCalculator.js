@@ -1,7 +1,10 @@
 Ext.define('ActualCalculator', {
     extend: 'Rally.data.lookback.calculator.BaseCalculator',
+    logger: new Rally.technicalservices.Logger(),
 
     runCalculation: function(snapshots) {
+        this.logger.log("Snapshots",snapshots);
+        
         var completedIterationTotals = {};
         var completedStoryIterations = {};
 
