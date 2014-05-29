@@ -3,11 +3,11 @@
 <head>
     <title>Iteration Adjuster</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 28 2014 18:20:25 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed May 28 2014 18:41:39 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 28 2014 18:20:25 GMT-0700 (PDT)";
-        var CHECKSUM = 7703245000;
+        var APP_BUILD_DATE = "Wed May 28 2014 18:41:39 GMT-0700 (PDT)";
+        var CHECKSUM = 7801554309;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
@@ -331,8 +331,10 @@ Ext.define('CustomApp', {
         var deferred = Ext.create('Deft.Deferred');
         iteration.set('PlannedVelocity',velocity);
         iteration.save({
+            scope: this,
             callback: function(result, operation) {
                 if(operation.wasSuccessful()) {
+                    this.publish(Rally.Message.objectUpdate,result);
                     deferred.resolve(result);
                 } else {
                     deferred.reject("Problem saving");

@@ -192,8 +192,10 @@ Ext.define('CustomApp', {
         var deferred = Ext.create('Deft.Deferred');
         iteration.set('PlannedVelocity',velocity);
         iteration.save({
+            scope: this,
             callback: function(result, operation) {
                 if(operation.wasSuccessful()) {
+                    this.publish(Rally.Message.objectUpdate,result);
                     deferred.resolve(result);
                 } else {
                     deferred.reject("Problem saving");
