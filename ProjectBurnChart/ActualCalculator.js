@@ -2,40 +2,69 @@ Ext.define('ActualCalculator', {
     extend: 'Rally.data.lookback.calculator.BaseCalculator',
     logger: new Rally.technicalservices.Logger(),
 
+    /**
+     * releases
+     * 
+     * [{@model}] An array of release model instances to restrict data to 
+     *            (do not put in the filters).  Empty array is ignore release.
+     */
+    releases: [],
+    /**
+     * items_in_release
+     * 
+     * [{@model}] An array of items in the release so that we can make sure to 
+     * ignore things that don't exist any more
+     * 
+     */
+    items_in_release: [],
     runCalculation: function(snapshots) {
         this.logger.log("Snapshots",snapshots);
+        
+        var release_oids = [];
+        Ext.Array.each(this.releases,function(release){
+            release_oids.push(release.get('ObjectID'));
+        });
+        
+        var undeleted_items = [];
+        Ext.Array.each(this.items_in_release,function(item_in_release){
+            undeleted_items.push(item_in_release.get('ObjectID'));
+        });
         
         var completedIterationTotals = {};
         var completedStoryIterations = {};
 
         var incompleteIterationTotals = {};
         var oldTotal, iteration, iterationName;
+        
         for (var s = 0, l = snapshots.length; s < l; s++) {
             var snapshot = snapshots[s];
-            var objectID = snapshot.ObjectID;
-            var iterations = this.getMatchingIterations(snapshot);
-            if (iterations.length === 0) {
-                continue;
-            }
-
-            if (snapshot.ScheduleState === "Accepted") {
-                iteration = iterations[0];
-                iterationName = iteration.get('Name');
-                if (snapshot._PreviousValues && (typeof snapshot._PreviousValues.ScheduleState) !== 'undefined' && !completedStoryIterations[objectID]) {
-                    completedStoryIterations[objectID] = iteration;
-                    oldTotal = completedIterationTotals[iterationName] || 0;
-                    completedIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
+            if ( this.snapshotIsAssociatedWithRelease(snapshot,release_oids) && 
+                this.snapshotIsAssociatedWithUndeletedItem(snapshot,undeleted_items) ){
+                
+                var objectID = snapshot.ObjectID;
+                var iterations = this.getMatchingIterations(snapshot);
+                if (iterations.length === 0) {
+                    continue;
                 }
-            } else {
-                for (var iter = 0, iterL = iterations.length; iter < iterL; iter++) {
-                    iteration = iterations[iter];
+    
+                if (snapshot.ScheduleState === "Accepted") {
+                    iteration = iterations[0];
                     iterationName = iteration.get('Name');
-                    oldTotal = incompleteIterationTotals[iterationName] || 0;
-                    incompleteIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
+                    if (snapshot._PreviousValues && (typeof snapshot._PreviousValues.ScheduleState) !== 'undefined' && !completedStoryIterations[objectID]) {
+                        completedStoryIterations[objectID] = iteration;
+                        oldTotal = completedIterationTotals[iterationName] || 0;
+                        completedIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
+                    }
+                } else {
+                    for (var iter = 0, iterL = iterations.length; iter < iterL; iter++) {
+                        iteration = iterations[iter];
+                        iterationName = iteration.get('Name');
+                        oldTotal = incompleteIterationTotals[iterationName] || 0;
+                        incompleteIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
+                    }
                 }
             }
-
-        }
+        } /* end of for loop */
 
         var actualSeriesData = [];
         var cumulativeActuals = 0;
@@ -136,7 +165,39 @@ Ext.define('ActualCalculator', {
             categories: categories
         };
     },
-
+    snapshotIsAssociatedWithUndeletedItem: function(snapshot,undeleted_items){
+        this.logger.log(undeleted_items);
+        if ( undeleted_items.length === 0 ) {
+            return true;
+        }
+        if ( typeof(snapshot) == "undefined" ) {
+            return false;
+        }
+        this.logger.log(snapshot.ObjectID,snapshot.FormattedID);
+        if (Ext.Array.indexOf(undeleted_items,snapshot.ObjectID) > -1){
+            this.logger.log("true");
+            return true;
+        }
+        return false;
+    },
+    snapshotIsAssociatedWithRelease: function(snapshot,release_oids) {
+        if ( release_oids.length === 0 ) {
+            return true;
+        }
+        if ( typeof(snapshot) == "undefined" ) {
+            return false;
+        }
+        if (Ext.Array.indexOf(release_oids,snapshot.Release) > -1){
+            return true;
+        }
+        if ( snapshot._PreviousValues ) {
+            if (Ext.Array.indexOf(release_oids,snapshot._PreviousValues.Release) > -1){
+                return true;
+            }
+        }
+        return false;
+    },
+    
     // old way, instead of backlog burn projection
     calculateCapacityBurn: function() {
         var iterationRef;

@@ -76,39 +76,71 @@ Ext.define('Rally.technicalservices.Logger',{
 
                 Ext.define('ActualCalculator', {
     extend: 'Rally.data.lookback.calculator.BaseCalculator',
+    logger: new Rally.technicalservices.Logger(),
 
+    /**
+     * releases
+     * 
+     * [{@model}] An array of release model instances to restrict data to 
+     *            (do not put in the filters).  Empty array is ignore release.
+     */
+    releases: [],
+    /**
+     * items_in_release
+     * 
+     * [{@model}] An array of items in the release so that we can make sure to 
+     * ignore things that don't exist any more
+     * 
+     */
+    items_in_release: [],
     runCalculation: function(snapshots) {
+        this.logger.log("Snapshots",snapshots);
+        
+        var release_oids = [];
+        Ext.Array.each(this.releases,function(release){
+            release_oids.push(release.get('ObjectID'));
+        });
+        
+        var undeleted_items = [];
+        Ext.Array.each(this.items_in_release,function(item_in_release){
+            undeleted_items.push(item_in_release.get('ObjectID'));
+        });
+        
         var completedIterationTotals = {};
         var completedStoryIterations = {};
 
         var incompleteIterationTotals = {};
         var oldTotal, iteration, iterationName;
+        
         for (var s = 0, l = snapshots.length; s < l; s++) {
             var snapshot = snapshots[s];
-            var objectID = snapshot.ObjectID;
-            var iterations = this.getMatchingIterations(snapshot);
-            if (iterations.length === 0) {
-                continue;
-            }
-
-            if (snapshot.ScheduleState === "Accepted") {
-                iteration = iterations[0];
-                iterationName = iteration.get('Name');
-                if (snapshot._PreviousValues && (typeof snapshot._PreviousValues.ScheduleState) !== 'undefined' && !completedStoryIterations[objectID]) {
-                    completedStoryIterations[objectID] = iteration;
-                    oldTotal = completedIterationTotals[iterationName] || 0;
-                    completedIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
+            if ( this.snapshotIsAssociatedWithRelease(snapshot,release_oids) && 
+                this.snapshotIsAssociatedWithUndeletedItem(snapshot,undeleted_items) ){
+                
+                var objectID = snapshot.ObjectID;
+                var iterations = this.getMatchingIterations(snapshot);
+                if (iterations.length === 0) {
+                    continue;
                 }
-            } else {
-                for (var iter = 0, iterL = iterations.length; iter < iterL; iter++) {
-                    iteration = iterations[iter];
+    
+                if (snapshot.ScheduleState === "Accepted") {
+                    iteration = iterations[0];
                     iterationName = iteration.get('Name');
-                    oldTotal = incompleteIterationTotals[iterationName] || 0;
-                    incompleteIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
+                    if (snapshot._PreviousValues && (typeof snapshot._PreviousValues.ScheduleState) !== 'undefined' && !completedStoryIterations[objectID]) {
+                        completedStoryIterations[objectID] = iteration;
+                        oldTotal = completedIterationTotals[iterationName] || 0;
+                        completedIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
+                    }
+                } else {
+                    for (var iter = 0, iterL = iterations.length; iter < iterL; iter++) {
+                        iteration = iterations[iter];
+                        iterationName = iteration.get('Name');
+                        oldTotal = incompleteIterationTotals[iterationName] || 0;
+                        incompleteIterationTotals[iterationName] = oldTotal + snapshot.PlanEstimate;
+                    }
                 }
             }
-
-        }
+        } /* end of for loop */
 
         var actualSeriesData = [];
         var cumulativeActuals = 0;
@@ -209,7 +241,39 @@ Ext.define('Rally.technicalservices.Logger',{
             categories: categories
         };
     },
-
+    snapshotIsAssociatedWithUndeletedItem: function(snapshot,undeleted_items){
+        this.logger.log(undeleted_items);
+        if ( undeleted_items.length === 0 ) {
+            return true;
+        }
+        if ( typeof(snapshot) == "undefined" ) {
+            return false;
+        }
+        this.logger.log(snapshot.ObjectID,snapshot.FormattedID);
+        if (Ext.Array.indexOf(undeleted_items,snapshot.ObjectID) > -1){
+            this.logger.log("true");
+            return true;
+        }
+        return false;
+    },
+    snapshotIsAssociatedWithRelease: function(snapshot,release_oids) {
+        if ( release_oids.length === 0 ) {
+            return true;
+        }
+        if ( typeof(snapshot) == "undefined" ) {
+            return false;
+        }
+        if (Ext.Array.indexOf(release_oids,snapshot.Release) > -1){
+            return true;
+        }
+        if ( snapshot._PreviousValues ) {
+            if (Ext.Array.indexOf(release_oids,snapshot._PreviousValues.Release) > -1){
+                return true;
+            }
+        }
+        return false;
+    },
+    
     // old way, instead of backlog burn projection
     calculateCapacityBurn: function() {
         var iterationRef;
@@ -331,7 +395,6 @@ Ext.define('Rally.technicalservices.Logger',{
             '</tpl>' }
     ],
     launch: function() {
-        //this.setLoading(true);
         this.logger.log("Launched with context: ", this.getContext());
         var projectRef = this.getContext().getProjectRef();
         var projectOid = this.getContext().getProject().ObjectID;
@@ -364,6 +427,7 @@ Ext.define('Rally.technicalservices.Logger',{
         this.down('#chart_box').add({xtype:'container',html:message});
     },
     gatherData: function(projectRef,projectOid,release) {
+        this.setLoading(true);
         this.logger.log("gatherData",projectOid,release);
         this.down('#summary_box').update();
         this.loadIterations(projectRef, projectOid,release).then({
@@ -371,14 +435,32 @@ Ext.define('Rally.technicalservices.Logger',{
             success: function(iterations) {
                 if ( iterations.length === 0 ) {
                     this.report_message('No iterations defined.');
+                    this.setLoading(false);
                 } else {
                     var iterationFilters = this.getIterationFilters(iterations);
 
                     this.loadCapacities(projectRef, projectOid, iterationFilters).then({
                         scope: this,
                         success: function(capacities) {
-                            this.setLoading(false);
-                            this.loadChart(iterations, capacities, projectOid, release);
+                            this._getReleasesLike(release).then({
+                                scope: this,
+                                success: function(releases) {
+                                    this._getOidsInRelease(release).then({
+                                        scope:this,
+                                        success:function(stories){
+                                            this.loadChart(iterations, capacities, projectOid, releases, stories);
+                                        },
+                                        failure: function(error) {
+                                            alert("Error while loading undeleted items: " + error);
+                                        }
+                                    });
+                                    
+                                },
+                                failure: function(error){
+                                    alert("Error while loading releases: " + error);
+                                }
+                            });
+                            
                         },
                         failure: function(error) {
                             console.log("Failed to load iteration capacities");
@@ -405,12 +487,53 @@ Ext.define('Rally.technicalservices.Logger',{
         return iterationFilters;
     },
 
+    _getReleasesLike: function(release){
+        this.logger.log('_getReleasesLike',release);
+        var deferred = Ext.create('Deft.Deferred');
+        if ( release.get('ObjectID') === 0 ) {
+            deferred.resolve([]);
+        } else {
+            Ext.create('Rally.data.wsapi.Store',{
+                model:'Release',
+                autoLoad: true,
+                filters: [{property:'Name',value:release.get('Name')}],
+                listeners: {
+                    load: function(store,releases){
+                        deferred.resolve(releases);
+                    }
+                }
+            });
+        }
+        return deferred;
+    },
+    _getOidsInRelease: function(release){
+        this.logger.log('_getOidsInRelease',release.get('Name'));
+        var deferred = Ext.create('Deft.Deferred');
+        if ( release.get('ObjectID') === 0 ) {
+            deferred.resolve([]);
+        } else {
+            Ext.create('Rally.data.wsapi.Store',{
+                model:'UserStory',
+                autoLoad: true,
+                fetch:['ObjectID'],
+                limit:'Infinity',
+                filters: [{property:'Release.Name',value:release.get('Name')}],
+                listeners: {
+                    load: function(store,stories){
+                        deferred.resolve(stories);
+                    }
+                }
+            });
+        }
+        return deferred;
+    },
     loadIterations: function(projectRef, projectOid, release) {
         var deferred = Ext.create('Deft.Deferred');
         
         var filters = [{ property: 'Project', value: projectRef }];
         
         var release_oid = release.get('ObjectID');
+        
         if ( release_oid > 0 ) {
             var start_date = Rally.util.DateTime.toIsoString(release.get('ReleaseStartDate'));
             var end_date = Rally.util.DateTime.toIsoString(release.get('ReleaseDate'));
@@ -507,24 +630,23 @@ Ext.define('Rally.technicalservices.Logger',{
             this.down('#summary_box').update(summary_configuration);
         }
     },
-    loadChart: function(iterations, capacities, projectOid, release) {
-        this.logger.log("loadChart");
+
+    loadChart: function(iterations, capacities, projectOid, releases, safe_items) {
+        this.logger.log("loadChart",releases);
         
         var filters = {
             '_ProjectHierarchy': projectOid,
             '_TypeHierarchy': 'HierarchicalRequirement',
             'Children': null
         };
-        if ( release.get('ObjectID') > 0 ) {
-            filters.Release = release.get('ObjectID');
-        }
+        
         var chart = {
             xtype: 'rallychart',
 
             storeType: 'Rally.data.lookback.SnapshotStore',
             storeConfig: {
                 find: filters,
-                fetch: ['PlanEstimate', 'ObjectID', 'ScheduleState', '_ValidFrom', '_ValidTo', '_PreviousValues'],
+                fetch: ['PlanEstimate', 'ObjectID', 'FormattedID', 'ScheduleState', '_ValidFrom', '_ValidTo', '_PreviousValues','Release'],
                 hydrate: ['ScheduleState'],
                 sort: { '_ValidFrom': -1 }
             },
@@ -533,7 +655,8 @@ Ext.define('Rally.technicalservices.Logger',{
             calculatorConfig: {
                 iterations: iterations,
                 capacities: capacities,
-                release: release
+                releases: releases,
+                items_in_release: safe_items
             },
 
             chartColors: ['#006b2f', '#009944', '#A40000', '#254361', '#8E8E8E', '#ee00000'],
@@ -542,6 +665,7 @@ Ext.define('Rally.technicalservices.Logger',{
                 snapshotsAggregated : function(c) {
                     this.logger.log("afterrender",c.chartData.series);
                     this._updateSummaryBox(iterations,c.chartData.series);
+                    this.setLoading(false);
                 }
             },
             chartConfig: {
@@ -590,7 +714,6 @@ Ext.define('Rally.technicalservices.Logger',{
                 }
             }
         };
-        
         this.down('#chart_box').removeAll();
         this.down('#chart_box').add(chart);
         this.logger.log("Chart Data",chart.getChartData());

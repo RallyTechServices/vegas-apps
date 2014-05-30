@@ -16,7 +16,6 @@ Ext.define('CustomApp', {
             '</tpl>' }
     ],
     launch: function() {
-        //this.setLoading(true);
         this.logger.log("Launched with context: ", this.getContext());
         var projectRef = this.getContext().getProjectRef();
         var projectOid = this.getContext().getProject().ObjectID;
@@ -49,6 +48,7 @@ Ext.define('CustomApp', {
         this.down('#chart_box').add({xtype:'container',html:message});
     },
     gatherData: function(projectRef,projectOid,release) {
+        this.setLoading(true);
         this.logger.log("gatherData",projectOid,release);
         this.down('#summary_box').update();
         this.loadIterations(projectRef, projectOid,release).then({
@@ -56,14 +56,32 @@ Ext.define('CustomApp', {
             success: function(iterations) {
                 if ( iterations.length === 0 ) {
                     this.report_message('No iterations defined.');
+                    this.setLoading(false);
                 } else {
                     var iterationFilters = this.getIterationFilters(iterations);
 
                     this.loadCapacities(projectRef, projectOid, iterationFilters).then({
                         scope: this,
                         success: function(capacities) {
-                            this.setLoading(false);
-                            this.loadChart(iterations, capacities, projectOid, release);
+                            this._getReleasesLike(release).then({
+                                scope: this,
+                                success: function(releases) {
+                                    this._getOidsInRelease(release).then({
+                                        scope:this,
+                                        success:function(stories){
+                                            this.loadChart(iterations, capacities, projectOid, releases, stories);
+                                        },
+                                        failure: function(error) {
+                                            alert("Error while loading undeleted items: " + error);
+                                        }
+                                    });
+                                    
+                                },
+                                failure: function(error){
+                                    alert("Error while loading releases: " + error);
+                                }
+                            });
+                            
                         },
                         failure: function(error) {
                             console.log("Failed to load iteration capacities");
@@ -90,12 +108,53 @@ Ext.define('CustomApp', {
         return iterationFilters;
     },
 
+    _getReleasesLike: function(release){
+        this.logger.log('_getReleasesLike',release);
+        var deferred = Ext.create('Deft.Deferred');
+        if ( release.get('ObjectID') === 0 ) {
+            deferred.resolve([]);
+        } else {
+            Ext.create('Rally.data.wsapi.Store',{
+                model:'Release',
+                autoLoad: true,
+                filters: [{property:'Name',value:release.get('Name')}],
+                listeners: {
+                    load: function(store,releases){
+                        deferred.resolve(releases);
+                    }
+                }
+            });
+        }
+        return deferred;
+    },
+    _getOidsInRelease: function(release){
+        this.logger.log('_getOidsInRelease',release.get('Name'));
+        var deferred = Ext.create('Deft.Deferred');
+        if ( release.get('ObjectID') === 0 ) {
+            deferred.resolve([]);
+        } else {
+            Ext.create('Rally.data.wsapi.Store',{
+                model:'UserStory',
+                autoLoad: true,
+                fetch:['ObjectID'],
+                limit:'Infinity',
+                filters: [{property:'Release.Name',value:release.get('Name')}],
+                listeners: {
+                    load: function(store,stories){
+                        deferred.resolve(stories);
+                    }
+                }
+            });
+        }
+        return deferred;
+    },
     loadIterations: function(projectRef, projectOid, release) {
         var deferred = Ext.create('Deft.Deferred');
         
         var filters = [{ property: 'Project', value: projectRef }];
         
         var release_oid = release.get('ObjectID');
+        
         if ( release_oid > 0 ) {
             var start_date = Rally.util.DateTime.toIsoString(release.get('ReleaseStartDate'));
             var end_date = Rally.util.DateTime.toIsoString(release.get('ReleaseDate'));
@@ -192,24 +251,23 @@ Ext.define('CustomApp', {
             this.down('#summary_box').update(summary_configuration);
         }
     },
-    loadChart: function(iterations, capacities, projectOid, release) {
-        this.logger.log("loadChart");
+
+    loadChart: function(iterations, capacities, projectOid, releases, safe_items) {
+        this.logger.log("loadChart",releases);
         
         var filters = {
             '_ProjectHierarchy': projectOid,
             '_TypeHierarchy': 'HierarchicalRequirement',
             'Children': null
         };
-        if ( release.get('ObjectID') > 0 ) {
-            filters.Release = release.get('ObjectID');
-        }
+        
         var chart = {
             xtype: 'rallychart',
 
             storeType: 'Rally.data.lookback.SnapshotStore',
             storeConfig: {
                 find: filters,
-                fetch: ['PlanEstimate', 'ObjectID', 'ScheduleState', '_ValidFrom', '_ValidTo', '_PreviousValues'],
+                fetch: ['PlanEstimate', 'ObjectID', 'FormattedID', 'ScheduleState', '_ValidFrom', '_ValidTo', '_PreviousValues','Release'],
                 hydrate: ['ScheduleState'],
                 sort: { '_ValidFrom': -1 }
             },
@@ -218,7 +276,8 @@ Ext.define('CustomApp', {
             calculatorConfig: {
                 iterations: iterations,
                 capacities: capacities,
-                release: release
+                releases: releases,
+                items_in_release: safe_items
             },
 
             chartColors: ['#006b2f', '#009944', '#A40000', '#254361', '#8E8E8E', '#ee00000'],
@@ -227,6 +286,7 @@ Ext.define('CustomApp', {
                 snapshotsAggregated : function(c) {
                     this.logger.log("afterrender",c.chartData.series);
                     this._updateSummaryBox(iterations,c.chartData.series);
+                    this.setLoading(false);
                 }
             },
             chartConfig: {
@@ -275,7 +335,6 @@ Ext.define('CustomApp', {
                 }
             }
         };
-        
         this.down('#chart_box').removeAll();
         this.down('#chart_box').add(chart);
         this.logger.log("Chart Data",chart.getChartData());
