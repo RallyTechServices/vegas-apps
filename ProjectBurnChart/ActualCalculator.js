@@ -17,9 +17,7 @@ Ext.define('ActualCalculator', {
      * 
      */
     items_in_release: [],
-    runCalculation: function(snapshots) {
-        this.logger.log("Snapshots",snapshots);
-        
+    runCalculation: function(snapshots) {        
         var release_oids = [];
         Ext.Array.each(this.releases,function(release){
             release_oids.push(release.get('ObjectID'));
@@ -36,10 +34,16 @@ Ext.define('ActualCalculator', {
         var incompleteIterationTotals = {};
         var oldTotal, iteration, iterationName;
         
+        var wsapi_actualSeriesData = this.getActualSeriesDataFromWsapi();
+        var wsapi_cumulativeActualSeriesData = this.getCumulativeActualSeriesDataFromWsapi(wsapi_actualSeriesData);
+        
         for (var s = 0, l = snapshots.length; s < l; s++) {
             var snapshot = snapshots[s];
-            if ( this.snapshotIsAssociatedWithRelease(snapshot,release_oids) && 
-                this.snapshotIsAssociatedWithUndeletedItem(snapshot,undeleted_items) ){
+//
+// no longer care if the item was in the release at the time of the snapshot (only care about now)
+//            if ( this.snapshotIsAssociatedWithRelease(snapshot,release_oids) && 
+//                this.snapshotIsAssociatedWithUndeletedItem(snapshot,undeleted_items) ){
+            if ( this.snapshotIsAssociatedWithUndeletedItem(snapshot,undeleted_items) ){
                 
                 var objectID = snapshot.ObjectID;
                 var iterations = this.getMatchingIterations(snapshot);
@@ -123,19 +127,32 @@ Ext.define('ActualCalculator', {
 
         var backlogBurnProjectionSeriesData = this.calculateBacklogBurnProjection(backlogRemainingSeriesData, actualSeriesData, categories);
 
+        this.logger.log("actualSeriesData",actualSeriesData);
+        this.logger.log("wsapi_actualSeriesData",wsapi_actualSeriesData);
+        this.logger.log("wsapi_cumulativeActualSeriesData",wsapi_cumulativeActualSeriesData);
         return {
             series: [
+//                {
+//                    name: 'Work Done (Current iteration Accepted Points)',
+//                    data: actualSeriesData,
+//                    itemId: 'done'
+//                },
+//                {
+//                    name: 'Total Work (Cumulative Accepted Points)',
+//                    data: cumulativeActualSeriesData,
+//                    itemId: 'total'
+//                },
                 {
                     name: 'Work Done (Current iteration Accepted Points)',
-                    data: actualSeriesData,
+                    data: wsapi_actualSeriesData,
                     itemId: 'done'
                 },
                 {
+                    // previously accepted points
                     name: 'Total Work (Cumulative Accepted Points)',
-                    data: cumulativeActualSeriesData,
+                    data: wsapi_cumulativeActualSeriesData,
                     itemId: 'total'
                 },
-
                 {
                     name: 'Work Increase (Points per iteration)',
                     data: devIncreaseSeriesData,
@@ -166,16 +183,13 @@ Ext.define('ActualCalculator', {
         };
     },
     snapshotIsAssociatedWithUndeletedItem: function(snapshot,undeleted_items){
-        this.logger.log(undeleted_items);
         if ( undeleted_items.length === 0 ) {
             return true;
         }
         if ( typeof(snapshot) == "undefined" ) {
             return false;
         }
-        this.logger.log(snapshot.ObjectID,snapshot.FormattedID);
         if (Ext.Array.indexOf(undeleted_items,snapshot.ObjectID) > -1){
-            this.logger.log("true");
             return true;
         }
         return false;
@@ -297,6 +311,35 @@ Ext.define('ActualCalculator', {
         }
 
         return matches;
+    },
+    
+    getActualSeriesDataFromWsapi: function() {
+        var series = [];
+        var total_by_iteration = {};
+        
+        Ext.Array.each(this.items_in_release,function(item){
+            if ( item.get('Iteration') && item.get('AcceptedDate') ) {
+                var old_total = total_by_iteration[item.get('Iteration').Name] || 0;
+                var plan_estimate = item.get('PlanEstimate') || 0;
+                total_by_iteration[item.get('Iteration').Name] = old_total + plan_estimate;
+            }
+        });
+        
+        for (var i = 0, il = this.iterations.length; i < il; i++) {
+            iteration = this.iterations[i];
+            var iteration_total = total_by_iteration[iteration.get('Name')] || 0;
+            series.push(iteration_total);
+        }
+        return series;
+    },
+    getCumulativeActualSeriesDataFromWsapi: function(actualSeriesData) {
+        var series = [];
+        var total = 0;
+        Ext.Array.each(actualSeriesData, function(value){
+            series.push(total);
+            total = total + value;
+        });
+        return series;
     }
 
 });

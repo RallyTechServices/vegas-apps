@@ -17,8 +17,7 @@ Ext.define('CustomApp', {
     ],
     launch: function() {
         this.logger.log("Launched with context: ", this.getContext());
-        var projectRef = this.getContext().getProjectRef();
-        var projectOid = this.getContext().getProject().ObjectID;
+
         this.down('#selector_box').add({
             xtype:'rallyreleasecombobox',
             allowNoEntry: true,
@@ -31,12 +30,12 @@ Ext.define('CustomApp', {
                 scope: this,
                 change: function(release_box, new_value, old_value, eOpts ) {
                     this.logger.log("Release Box Change",release_box.getRecord());
-                    this.gatherData(projectRef,projectOid,release_box.getRecord());
+                    this.gatherData(release_box.getRecord());
                 },
                 ready: function(release_box) {
                     this.logger.log("Release Box Ready",release_box.getRecord());
                     if ( release_box.getRecord().get('Name') == "-- All --") {
-                        this.gatherData(projectRef,projectOid,release_box.getRecord());
+                        this.gatherData(release_box.getRecord());
                     }
                 }
             }
@@ -47,9 +46,18 @@ Ext.define('CustomApp', {
         this.down('#chart_box').removeAll();
         this.down('#chart_box').add({xtype:'container',html:message});
     },
-    gatherData: function(projectRef,projectOid,release) {
-        this.setLoading(true);
-        this.logger.log("gatherData",projectOid,release);
+    /*
+     * We have to get all the items that are in the release right now:  We're
+     * not interested in whether it was in the release at the end of the iteration that
+     * it was accepted in.
+     */
+    gatherData: function(release) {
+        this.setLoading("Gathering Iteration Data...");
+        this.logger.log("gatherData",release);
+        
+        var projectRef = this.getContext().getProjectRef();
+        var projectOid = this.getContext().getProject().ObjectID;
+        
         this.down('#summary_box').update();
         this.loadIterations(projectRef, projectOid,release).then({
             scope: this,
@@ -59,16 +67,20 @@ Ext.define('CustomApp', {
                     this.setLoading(false);
                 } else {
                     var iterationFilters = this.getIterationFilters(iterations);
-
+                    
+                    this.setLoading("Gathering Capacity Data...");
                     this.loadCapacities(projectRef, projectOid, iterationFilters).then({
                         scope: this,
                         success: function(capacities) {
+                            this.setLoading("Gathering Release Data...");
                             this._getReleasesLike(release).then({
                                 scope: this,
                                 success: function(releases) {
-                                    this._getOidsInRelease(release).then({
+                                    this.setLoading("Gathering Current Data...");
+                                    this._getStoriesInRelease(release).then({
                                         scope:this,
                                         success:function(stories){
+                                            this.setLoading("Gathering Historical Data...");
                                             this.loadChart(iterations, capacities, projectOid, releases, stories);
                                         },
                                         failure: function(error) {
@@ -127,25 +139,28 @@ Ext.define('CustomApp', {
         }
         return deferred;
     },
-    _getOidsInRelease: function(release){
-        this.logger.log('_getOidsInRelease',release.get('Name'));
+    _getStoriesInRelease: function(release){
+        this.logger.log('_getStoriesInRelease',release.get('Name'));
         var deferred = Ext.create('Deft.Deferred');
-        if ( release.get('ObjectID') === 0 ) {
-            deferred.resolve([]);
-        } else {
-            Ext.create('Rally.data.wsapi.Store',{
-                model:'UserStory',
-                autoLoad: true,
-                fetch:['ObjectID'],
-                limit:'Infinity',
-                filters: [{property:'Release.Name',value:release.get('Name')}],
-                listeners: {
-                    load: function(store,stories){
-                        deferred.resolve(stories);
-                    }
-                }
-            });
+        var filters = [{property:'ObjectID',operator: '>', value: 0 }];
+        
+        if ( release.get('ObjectID') !== 0 ) {
+            filters = [{property:'Release.Name',value:release.get('Name')}];
         }
+        
+        Ext.create('Rally.data.wsapi.Store',{
+            model:'UserStory',
+            autoLoad: true,
+            fetch:['ObjectID','Name','Iteration','ScheduleState','AcceptedDate','PlanEstimate'],
+            limit:'Infinity',
+            filters: filters,
+            listeners: {
+                load: function(store,stories){
+                    deferred.resolve(stories);
+                }
+            }
+        });
+      
         return deferred;
     },
     loadIterations: function(projectRef, projectOid, release) {
@@ -263,7 +278,6 @@ Ext.define('CustomApp', {
         
         var chart = {
             xtype: 'rallychart',
-
             storeType: 'Rally.data.lookback.SnapshotStore',
             storeConfig: {
                 find: filters,
