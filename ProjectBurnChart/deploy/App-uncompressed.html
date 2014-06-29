@@ -560,22 +560,25 @@ Ext.define('Rally.technicalservices.Logger',{
     _getStoriesInRelease: function(release){
         this.logger.log('_getStoriesInRelease',release.get('Name'));
         var deferred = Ext.create('Deft.Deferred');
-        if ( release.get('ObjectID') === 0 ) {
-            deferred.resolve([]);
-        } else {
-            Ext.create('Rally.data.wsapi.Store',{
-                model:'UserStory',
-                autoLoad: true,
-                fetch:['ObjectID','Name','Iteration','ScheduleState','AcceptedDate','PlanEstimate'],
-                limit:'Infinity',
-                filters: [{property:'Release.Name',value:release.get('Name')}],
-                listeners: {
-                    load: function(store,stories){
-                        deferred.resolve(stories);
-                    }
-                }
-            });
+        var filters = [{property:'ObjectID',operator: '>', value: 0 }];
+        
+        if ( release.get('ObjectID') !== 0 ) {
+            filters = [{property:'Release.Name',value:release.get('Name')}];
         }
+        
+        Ext.create('Rally.data.wsapi.Store',{
+            model:'UserStory',
+            autoLoad: true,
+            fetch:['ObjectID','Name','Iteration','ScheduleState','AcceptedDate','PlanEstimate'],
+            limit:'Infinity',
+            filters: filters,
+            listeners: {
+                load: function(store,stories){
+                    deferred.resolve(stories);
+                }
+            }
+        });
+      
         return deferred;
     },
     loadIterations: function(projectRef, projectOid, release) {
