@@ -14,6 +14,7 @@ in columns that are their state and rows that are their workproducts.  The **add
 * The FormattedID of each item is now a link to its details page
 * The new plus sign on each workproduct starts the creation process for a task and pops up an edit dialog
 
+
 ### ProjectBurnChart
 
 This is a modification of a customer-created app that provides a great many things with respect to showing
