@@ -52,7 +52,7 @@ Ext.define('CustomApp', {
      * it was accepted in.
      */
     gatherData: function(release) {
-        this.setLoading("Gathering Historical Data...");
+        this.setLoading("Gathering Iteration Data...");
         this.logger.log("gatherData",release);
         
         var projectRef = this.getContext().getProjectRef();
@@ -67,16 +67,20 @@ Ext.define('CustomApp', {
                     this.setLoading(false);
                 } else {
                     var iterationFilters = this.getIterationFilters(iterations);
-
+                    
+                    this.setLoading("Gathering Capacity Data...");
                     this.loadCapacities(projectRef, projectOid, iterationFilters).then({
                         scope: this,
                         success: function(capacities) {
+                            this.setLoading("Gathering Release Data...");
                             this._getReleasesLike(release).then({
                                 scope: this,
                                 success: function(releases) {
+                                    this.setLoading("Gathering Current Data...");
                                     this._getStoriesInRelease(release).then({
                                         scope:this,
                                         success:function(stories){
+                                            this.setLoading("Gathering Historical Data...");
                                             this.loadChart(iterations, capacities, projectOid, releases, stories);
                                         },
                                         failure: function(error) {
