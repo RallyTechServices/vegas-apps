@@ -7,7 +7,9 @@ as well as the projected completion date for a project that has its scope define
 
 ### Notes
 
-* This one isn't designed to do any rolling up.
+* The green bars (accepted/cumulative accepted) are based on a WSAPI call, not lookback.  This way, items
+  that were accepted in a different release/iteration are counted as the release/iteration that they are
+  a part of right now.
 
 ### Development
 This one is written with the Rally App Builder.  To compile after modifying, type rally-app-builder.
