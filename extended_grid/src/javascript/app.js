@@ -135,7 +135,7 @@ Ext.define('CustomApp', {
         var me = this;
         var today = new Date();
         
-        columns.push({
+/*        columns.push({
             text:"Projection (count)",
             dataIndex:'ObjectID',
             menuDisabled: true,
@@ -157,9 +157,9 @@ Ext.define('CustomApp', {
                 return Rally.util.DateTime.formatWithDefaultDateTime(predicted_date).replace(/ .*$/,"");
             }
         });
-        
+*/        
         columns.push({
-            text:"Projection (points)",
+            text:"Projected Golden Game",
             dataIndex:'ObjectID',
             menuDisabled: true,
             renderer:function(value,meta_data,record){
