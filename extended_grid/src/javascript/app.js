@@ -2,7 +2,7 @@ Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
-
+    column_widths: {},
     requires: [
         'Rally.data.util.Sorter',
         'Rally.data.wsapi.Filter',
@@ -63,6 +63,10 @@ Ext.define('CustomApp', {
             enableBulkEdit: context.isFeatureEnabled("BETA_TRACKING_EXPERIENCE"),
             plugins: this._getPlugins(columns),
             context: this.getContext(),
+            listeners: {
+                scope: this,
+                columnresize: this._saveColumnResize
+            },
             storeConfig: {
                 fetch: full_fetch,
                 models: type_path,
@@ -122,14 +126,26 @@ Ext.define('CustomApp', {
     },
     
     _getColumns: function(fetch){
+        var columns = [];
         if (fetch) {
             var fetch_array = this._getFetchArray(fetch);
-
-            return Ext.Array.difference(fetch_array, this._getFetchOnlyFields());
+            Ext.Array.each ( Ext.Array.difference(fetch_array, this._getFetchOnlyFields()), function(fetch_item) {
+                this.logger.log(fetch_item);
+                columns.push(this._makeColumnFromName(fetch_item));
+            },this);
         }
-        return [];
+        return columns;
     },
-    
+    _makeColumnFromName:function(field_name){
+        var column = {
+            dataIndex:field_name,
+            menuDisabled: true
+        };
+        if (this.getSetting(column.dataIndex+"_colwidth")) {
+            column.width =  this.getSetting(column.dataIndex+"_colwidth");
+        }
+        return column;
+    },
     _getCalculatedColumns:function() {
         var columns = [];
         var me = this;
@@ -158,7 +174,7 @@ Ext.define('CustomApp', {
             }
         });
 */        
-        columns.push({
+        var column = {
             text:"Projected Golden Game",
             dataIndex:'ObjectID',
             menuDisabled: true,
@@ -179,10 +195,24 @@ Ext.define('CustomApp', {
                 var predicted_date = Rally.util.DateTime.add(today,"day",days_ahead);
                 return Rally.util.DateTime.formatWithDefaultDateTime(predicted_date).replace(/ .*$/,"");
             }
-        });
+        }
+        if (this.getSetting(column.dataIndex+"_colwidth")) {
+            column.width =  this.getSetting(column.dataIndex+"_colwidth");
+        }
+        columns.push(column);
         return columns;
     },
 
+    _saveColumnResize: function(grid,column,width) {
+        if (column.dataIndex ) {
+            this.column_widths[column.dataIndex+"_colwidth"] = width;
+        }
+        
+        this.updateSettingsValues({
+            settings: this.column_widths
+        });
+        
+    },
     _getPlugins: function(columns) {
         var plugins = [];
 
