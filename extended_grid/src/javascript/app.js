@@ -13,15 +13,16 @@ Ext.define('CustomApp', {
     config: {
         defaultSettings: {
             type_path: 'PortfolioItem/Feature',
-            fetch: 'FormattedID,Name'
+            fetch: 'FormattedID,Name',
+            early: 21 /* number of days ahead of schedule to turn color */
         }
     },
     padding: 10,
     items: [
-        {xtype:'container',itemId:'display_box',autoScroll: false},
+        {xtype:'container',itemId:'display_box',autoScroll: true},
         {xtype:'tsinfolink'}
     ],
-    autoScroll: true,
+    autoScroll: false,
     launch: function() {
         if (this.isExternal()){
             this.showSettings(this.config);
@@ -59,7 +60,7 @@ Ext.define('CustomApp', {
             enableColumnHide: false,
             enableRanking: true,
             autoScroll: false,
-            scroll: false,
+            scroll: true,
             enableBulkEdit: context.isFeatureEnabled("BETA_TRACKING_EXPERIENCE"),
             plugins: this._getPlugins(columns),
             context: this.getContext(),
@@ -187,29 +188,6 @@ Ext.define('CustomApp', {
         var me = this;
         var today = new Date();
         
-/*        columns.push({
-            text:"Projection (count)",
-            dataIndex:'ObjectID',
-            menuDisabled: true,
-            renderer:function(value,meta_data,record){
-                var actual_start = record.get('ActualStartDate');
-                var percent_done = record.get('PercentDoneByStoryCount');
-                if ( percent_done === 1 ) {
-                    return "Done";
-                }
-                
-                if ( percent_done === 0 ) {
-                    return "Not Started";
-                }
-                
-                var days_behind = Rally.util.DateTime.getDifference(today,actual_start, 'day');
-                var days_ahead = ( 1 - percent_done ) * days_behind / percent_done;
-                
-                var predicted_date = Rally.util.DateTime.add(today,"day",days_ahead);
-                return Rally.util.DateTime.formatWithDefaultDateTime(predicted_date).replace(/ .*$/,"");
-            }
-        });
-*/        
         var column = {
             text:"Projected Golden Game",
             dataIndex:'DisplayColor',
@@ -225,10 +203,18 @@ Ext.define('CustomApp', {
                     return "Not Started";
                 }
                 
-                var days_behind = Rally.util.DateTime.getDifference(today,actual_start, 'day');
-                var days_ahead = ( 1 - percent_done ) * days_behind / percent_done;
+                var days_passed = Rally.util.DateTime.getDifference(today,actual_start, 'day');
+                var days_predicted_to_go = ( 1 - percent_done ) * days_passed / percent_done;
                 
-                var predicted_date = Rally.util.DateTime.add(today,"day",days_ahead);
+                var predicted_date = Rally.util.DateTime.add(today,"day",days_predicted_to_go);
+                
+                var days_ahead_of_planned = Rally.util.DateTime.getDifference(record.get('PlannedEndDate'),predicted_date,'day');
+                var cutline = me.getSetting('early');
+                
+                if ( days_ahead_of_planned >= cutline ) {
+                    meta_data.style = "background-color: #C2E0FF";
+                }
+                me.logger.log("days ahead",days_ahead_of_planned,predicted_date,record.get('PlannedEndDate'));
                 return Rally.util.DateTime.formatWithDefaultDateTime(predicted_date).replace(/ .*$/,"");
             }
         }
@@ -301,6 +287,7 @@ Ext.define('CustomApp', {
         
         var label_width = 65;
         var field_width = 250;
+        var field_margin = 5;
         return [
         {
             name: 'type_path',
@@ -319,9 +306,19 @@ Ext.define('CustomApp', {
             labelWidth: label_width,
             labelAlign: 'left',
             width: field_width,
-            margin: 10,
+            margin: field_margin,
             valueField:'TypePath',
             readyEvent: 'ready'
+        },
+        {
+            name:'early',
+            xtype:'rallynumberfield',
+            fieldLabel:'Early (days)',
+            width: field_width + 7,
+            labelWidth: label_width,
+            margin: field_margin,
+            maxValue: 200,
+            minValue: 1
         },
         {
             name: 'fetch',
@@ -330,7 +327,7 @@ Ext.define('CustomApp', {
             labelWidth: label_width,
             labelAlign: 'left',
             width: field_width,
-            margin: 10,
+            margin: field_margin,
             alwaysExpanded: false,
             autoExpand: true,
             modelTypes:['PortfolioItem'],
@@ -347,7 +344,7 @@ Ext.define('CustomApp', {
             grow: true,
             width: field_width,
             labelWidth: label_width,
-            margin: 10
+            margin: field_margin
         },
         {
             name:'order',
@@ -355,15 +352,15 @@ Ext.define('CustomApp', {
             fieldLabel:'Order',
             width: field_width,
             labelWidth: label_width,
-            margin: 10
+            margin: field_margin
         },
         {
             name:'pageSize',
             xtype:'rallynumberfield',
             fieldLabel:'Page Size',
-            width: field_width,
+            width: field_width + 7,
             labelWidth: label_width,
-            margin: 10,
+            margin: field_margin,
             maxValue: 200,
             minValue: 1
         }];
@@ -384,6 +381,7 @@ Ext.define('CustomApp', {
         
         if (this.isExternal()){
             if (this.down('#display_box').getComponent(this._appSettings.id)==undefined){
+                this._appSettings.setOverflowXY('scroll','scroll');
                 this.down('#display_box').add(this._appSettings);
             }
         } else {
