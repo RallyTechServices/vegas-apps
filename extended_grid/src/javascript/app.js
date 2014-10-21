@@ -212,7 +212,7 @@ Ext.define('CustomApp', {
 */        
         var column = {
             text:"Projected Golden Game",
-            dataIndex:'ObjectID',
+            dataIndex:'DisplayColor',
             menuDisabled: true,
             renderer:function(value,meta_data,record){
                 var actual_start = record.get('ActualStartDate');
