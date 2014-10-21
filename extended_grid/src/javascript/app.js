@@ -47,7 +47,7 @@ Ext.define('CustomApp', {
         var full_fetch = Ext.Array.merge(this._getFetchArray(fetch),necessary_fields);
         
         var calculated_columns = this._getCalculatedColumns();
-        var full_columns = Ext.Array.merge(columns,calculated_columns);
+        var full_columns = this._putColumnsInOrder(Ext.Array.merge(columns,calculated_columns));
         
         this.logger.log("Using columns:",full_columns);
         
@@ -65,7 +65,9 @@ Ext.define('CustomApp', {
             context: this.getContext(),
             listeners: {
                 scope: this,
-                columnresize: this._saveColumnResize
+                columnresize: this._saveColumnResize,
+                columnmove: this._saveColumnMove
+                
             },
             storeConfig: {
                 fetch: full_fetch,
@@ -130,11 +132,45 @@ Ext.define('CustomApp', {
         if (fetch) {
             var fetch_array = this._getFetchArray(fetch);
             Ext.Array.each ( Ext.Array.difference(fetch_array, this._getFetchOnlyFields()), function(fetch_item) {
-                this.logger.log(fetch_item);
                 columns.push(this._makeColumnFromName(fetch_item));
             },this);
         }
+        
         return columns;
+    },
+    _putColumnsInOrder: function(columns) {
+        this.logger.log("_putColumnsInOrder",columns);
+        var column_order =  [];
+        var ordered_column_data_indexes = [];
+        var ordered_columns = [];
+        /*
+         * column_order is an array of the data indexes of columns in order (left-to-right) from saved settings
+         * ordered_columns = an array of column definitions in order based on column_order
+         * ordered_column_data_indexes is an array of column names that have been put into the ordered array
+         */
+        if (this.getSetting("column_order")) {
+            column_order = this.getSetting("column_order").split(',');
+            // loop over the order of column indexes
+            Ext.Array.each(column_order,function(data_index){
+                // loop over the columns to find if there's one that matches the current one
+                Ext.Array.each(columns,function(column_definition){
+                    if (column_definition.dataIndex == data_index){
+                        ordered_columns.push(column_definition);
+                        ordered_column_data_indexes.push(data_index);
+                    }
+                },this);
+            },this);
+        }
+        /*
+         * After the columns that we know the order of, make sure we put any other column definitions
+         * that we know about onto the end of the ordered_columns array
+         */
+        Ext.Array.each(columns,function(column_definition){
+            if ( !Ext.Array.contains(ordered_column_data_indexes,column_definition.dataIndex)) {
+                ordered_columns.push(column_definition);
+            }
+        });
+        return ordered_columns;
     },
     _makeColumnFromName:function(field_name){
         var column = {
@@ -210,6 +246,20 @@ Ext.define('CustomApp', {
         
         this.updateSettingsValues({
             settings: this.column_widths
+        });
+        
+    },
+    _saveColumnMove: function(header,column,fromIdx, toIdx) {
+        this.logger.log(header.getGridColumns());
+        var ordered_column_data_indexes = [];
+        Ext.Array.each(header.getGridColumns(),function(column){
+            this.logger.log("Column:", column.dataIndex);
+            if ( column.dataIndex ) {
+                ordered_column_data_indexes.push(column.dataIndex);
+            }
+        }, this);
+        this.updateSettingsValues({
+            settings: { column_order: ordered_column_data_indexes }
         });
         
     },
